@@ -374,26 +374,54 @@ router.post(
         return;
       }
 
-      const input = parsed.data;
-      const membershipId = randomUUID();
+       const input = parsed.data;
 
-      await pool.execute<ResultSetHeader>(
-        `INSERT INTO business_memberships
-           (id, business_id, auth_user_id, role)
-         VALUES (?, ?, ?, ?)`,
-        [membershipId, businessId, input.authUserId, input.role]
-      );
+       let authUserId = input.authUserId;
 
-      res.status(201).json({
-        status: "success",
-        message: "Member added successfully.",
-        data: {
-          id: membershipId,
-          authUserId: input.authUserId,
-          role: input.role,
-          isActive: true,
-        },
-      });
+       if (!authUserId && input.email) {
+         const [userRows] = await pool.execute<RowDataPacket[]>(
+           `SELECT id FROM auth_users WHERE email = ? AND is_active = TRUE LIMIT 1`,
+           [input.email]
+         );
+
+         if (userRows.length === 0) {
+           res.status(404).json({
+             status: "error",
+             message: "No active user found with that email.",
+           });
+           return;
+         }
+
+         authUserId = String(userRows[0].id);
+       }
+
+       if (!authUserId) {
+         res.status(400).json({
+           status: "error",
+           message: "Either authUserId or email is required.",
+         });
+         return;
+       }
+
+       const membershipId = randomUUID();
+
+       await pool.execute<ResultSetHeader>(
+         `INSERT INTO business_memberships
+            (id, business_id, auth_user_id, role)
+          VALUES (?, ?, ?, ?)`,
+         [membershipId, businessId, authUserId, input.role]
+       );
+
+       res.status(201).json({
+         status: "success",
+         message: "Member added successfully.",
+         data: {
+           id: membershipId,
+           authUserId,
+           role: input.role,
+           isActive: true,
+         },
+       });
     } catch (error) {
       if (isDuplicateEntryError(error)) {
         res.status(409).json({

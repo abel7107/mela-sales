@@ -14,12 +14,24 @@ import saleDetailRoutes from "./routes/saleDetailRoutes.js";
 import salePaymentRoutes from "./routes/salePaymentRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import businessRoutes from "./routes/businessRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
+import { getPublicJwk } from "./services/authTokenService.js";
 
 dotenv.config();
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 const NODE_ENV = process.env.NODE_ENV || "development";
+
+if (!process.env.MELA_AUTH_ISSUER) {
+  process.env.MELA_AUTH_ISSUER = `http://localhost:${PORT}/`;
+}
+if (!process.env.MELA_AUTH_AUDIENCE) {
+  process.env.MELA_AUTH_AUDIENCE = "mela-sales-api";
+}
+if (!process.env.MELA_AUTH_JWKS_URL) {
+  process.env.MELA_AUTH_JWKS_URL = `http://localhost:${PORT}/.well-known/jwks.json`;
+}
 
 function resolveCorsOrigins(): string[] | boolean {
   const raw = process.env.CORS_ORIGINS;
@@ -70,6 +82,19 @@ if (NODE_ENV !== "test") {
 }
 
 app.use(express.json({ limit: "1mb" }));
+
+// --- Auth -------------------------------------------------------------------
+app.use("/api/v1/auth", authRoutes);
+
+// --- JWKS endpoint ----------------------------------------------------------
+app.get("/.well-known/jwks.json", async (_req, res, next) => {
+  try {
+    const { jwk } = await getPublicJwk();
+    res.status(200).json({ keys: [jwk] });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // --- Business lifecycle -----------------------------------------------------
 app.use("/api/v1/businesses", businessRoutes);

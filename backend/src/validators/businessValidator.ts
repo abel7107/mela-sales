@@ -39,14 +39,15 @@ export const updateBusinessSchema = createBusinessSchema
 
 export const addMemberSchema = z
   .object({
-    authUserId: z
-      .string()
-      .trim()
-      .min(1, "authUserId is required.")
-      .max(255),
+    authUserId: z.string().trim().min(1).max(255).optional(),
+    email: z.string().trim().toLowerCase().email().max(254).optional(),
     role: z.enum(["OWNER", "CASHIER"]),
   })
-  .strict();
+  .strict()
+  .refine(
+    (data) => Boolean(data.authUserId || data.email),
+    "Either authUserId or email is required."
+  );
 
 export const updateMemberSchema = z
   .object({

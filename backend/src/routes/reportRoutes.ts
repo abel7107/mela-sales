@@ -78,10 +78,16 @@ router.get(
                 COALESCE(SUM(discount_amount), 0) AS discountAmount,
                 COALESCE(SUM(CASE WHEN sale_type = 'CASH' THEN total_amount END), 0) AS cashAmount,
                 COALESCE(SUM(CASE WHEN sale_type = 'CREDIT' THEN total_amount END), 0) AS creditAmount,
-                COALESCE(SUM(CASE WHEN status = 'OPEN' THEN total_amount END), 0) AS outstandingAmount
+                COALESCE(SUM(CASE WHEN status = 'OPEN' THEN total_amount END), 0) -
+            COALESCE((SELECT SUM(p.amount)
+                      FROM payments p
+                      JOIN sales s2 ON s2.business_id = p.business_id
+                                   AND s2.id = p.sale_id
+                      WHERE s2.business_id = ?
+                        AND s2.status = 'OPEN'), 0) AS outstandingAmount
          FROM sales
          WHERE ${whereSql}`,
-        args
+        [businessId, ...args]
       );
 
       const [daily] = await pool.execute<RowDataPacket[]>(
@@ -171,7 +177,9 @@ router.get(
         req.query.only_with_balance === "true" ||
         req.query.only_with_balance === "1";
 
-      const having = onlyWithBalance ? "HAVING outstandingBalance > 0" : "";
+       const having = onlyWithBalance
+         ? "HAVING COALESCE(SUM(s.total_amount), 0) - COALESCE(SUM(p.paid), 0) > 0"
+         : "";
 
       const [countRows] = await pool.execute<RowDataPacket[]>(
         `SELECT COUNT(*) AS total FROM (
@@ -187,9 +195,9 @@ router.get(
              GROUP BY business_id, sale_id
            ) p ON p.business_id = s.business_id AND p.sale_id = s.id
            WHERE c.business_id = ? AND c.is_active = TRUE
-           GROUP BY c.id
-           ${having}
-         ) t`,
+            GROUP BY c.id
+            ${having}
+          ) t`,
         [businessId]
       );
 
