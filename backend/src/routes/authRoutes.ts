@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
@@ -52,6 +52,19 @@ const refreshSchema = z
 const logoutSchema = z
   .object({
     refreshToken: z.string().trim().min(1).optional(),
+  })
+  .strict();
+
+const forgotPasswordSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email().max(254),
+  })
+  .strict();
+
+const resetPasswordSchema = z
+  .object({
+    token: z.string().trim().min(1),
+    password: z.string().min(8).max(128),
   })
   .strict();
 
@@ -311,6 +324,132 @@ router.post("/logout", async (req, res, next) => {
     res.status(200).json({
       status: "success",
       message: "Signed out.",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/v1/auth/forgot-password
+router.post("/forgot-password", async (req, res, next) => {
+  try {
+    const parsed = forgotPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        status: "error",
+        message: "Invalid request data.",
+        errors: parsed.error.issues.map((i) => ({
+          field: i.path.join("."),
+          message: i.message,
+        })),
+      });
+      return;
+    }
+
+    const user = await findUserByEmail(parsed.data.email);
+
+    let resetToken: string | undefined;
+
+    if (user && user.is_active === 1) {
+      const token = randomBytes(32).toString("hex");
+      const tokenHash = hashRefreshToken(token);
+
+      await pool.execute(
+        `DELETE FROM auth_password_resets WHERE user_id = ?`,
+        [user.id]
+      );
+
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+      await pool.execute<ResultSetHeader>(
+        `INSERT INTO auth_password_resets (id, user_id, token_hash, expires_at)
+         VALUES (?, ?, ?, ?)`,
+        [randomUUID(), user.id, tokenHash, expiresAt]
+      );
+
+      resetToken = token;
+    }
+
+    res.status(200).json({
+      status: "success",
+      message:
+        "If an account with that email exists, a password reset link has been sent.",
+      ...(process.env.NODE_ENV !== "production" && resetToken
+        ? { data: { resetToken } }
+        : {}),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/v1/auth/reset-password
+router.post("/reset-password", async (req, res, next) => {
+  try {
+    const parsed = resetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        status: "error",
+        message: "Invalid reset data.",
+        errors: parsed.error.issues.map((i) => ({
+          field: i.path.join("."),
+          message: i.message,
+        })),
+      });
+      return;
+    }
+
+    const tokenHash = hashRefreshToken(parsed.data.token);
+
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT id, user_id, expires_at
+       FROM auth_password_resets
+       WHERE token_hash = ?
+       LIMIT 1`,
+      [tokenHash]
+    );
+
+    const row = rows[0] as
+      | { id: string; user_id: string; expires_at: Date }
+      | undefined;
+
+    if (!row || new Date(row.expires_at).getTime() <= Date.now()) {
+      if (row) {
+        await pool.execute(`DELETE FROM auth_password_resets WHERE id = ?`, [
+          row.id,
+        ]);
+      }
+      res.status(400).json({
+        status: "error",
+        message: "Invalid or expired reset token.",
+      });
+      return;
+    }
+
+    const user = await findUserById(row.user_id);
+    if (!user) {
+      res.status(400).json({
+        status: "error",
+        message: "Invalid or expired reset token.",
+      });
+      return;
+    }
+
+    const newHash = hashPassword(parsed.data.password);
+
+    await pool.execute<ResultSetHeader>(
+      `UPDATE auth_users SET password_hash = ? WHERE id = ?`,
+      [newHash, user.id]
+    );
+
+    await pool.execute(
+      `DELETE FROM auth_password_resets WHERE user_id = ?`,
+      [user.id]
+    );
+
+    res.status(200).json({
+      status: "success",
+      message: "Password has been reset. You can now sign in.",
     });
   } catch (error) {
     next(error);
