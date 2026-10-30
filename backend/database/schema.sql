@@ -225,6 +225,20 @@ CREATE TABLE auth_refresh_tokens (
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE auth_password_resets (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    token_hash CHAR(64) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_password_reset_token (token_hash),
+    KEY idx_password_resets_user (user_id),
+    KEY idx_password_resets_expiry (expires_at),
+    CONSTRAINT fk_password_resets_user
+        FOREIGN KEY (user_id) REFERENCES auth_users(id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE audit_events (
     id CHAR(36) NOT NULL PRIMARY KEY,
     business_id CHAR(36) NOT NULL,

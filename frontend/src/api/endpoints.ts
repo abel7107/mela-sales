@@ -40,6 +40,14 @@ export function authLogin(body: { email: string; password: string }) {
   return apiPost<AuthSession>('/auth/login', body).then((e) => e.data)
 }
 
+export function authForgotPassword(body: { email: string }) {
+  return apiPost<{ resetToken?: string }>('/auth/forgot-password', body).then((e) => e.data)
+}
+
+export function authResetPassword(body: { token: string; password: string }) {
+  return apiPost<void>('/auth/reset-password', body).then((e) => e.data)
+}
+
 export function authLogout(refreshToken: string) {
   return apiPost<void>('/auth/logout', { refreshToken }).then((e) => e.data)
 }
