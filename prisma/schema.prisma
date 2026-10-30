@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  CASHIER
+}
+
+enum PaymentType {
+  CASH
+  CREDIT
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
+  MOBILE
+  OTHER
+}
+
+enum SaleStatus {
+  COMPLETED
+  VOIDED
+}
+
+enum PlanFrequency {
+  WEEKLY
+  MONTHLY
+}
+
+enum PlanStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+model Business {
+  id             String   @id @default(uuid()) @db.Char(36)
+  name           String   @db.VarChar(200)
+  phone          String?  @db.VarChar(50)
+  email          String?  @db.VarChar(200)
+  address        String?  @db.VarChar(300)
+  tin            String?  @db.VarChar(50)
+  currency       String   @default("ETB") @db.VarChar(3)
+  logoFile       String?  @db.VarChar(100)
+  invoicePrefix  String   @default("INV") @db.VarChar(10)
+  invoiceCounter Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  users      User[]
+  customers  Customer[]
+  products   Product[]
+  sales      Sale[]
+  invoices   Invoice[]
+  payments   Payment[]
+  plans      RecurringPlan[]
+  auditLogs  AuditLog[]
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Char(36)
+  businessId   String   @db.Char(36)
+  name         String   @db.VarChar(120)
+  email        String   @unique @db.VarChar(200)
+  passwordHash String?  @db.VarChar(255)
+  melaAuthId   String?  @unique @db.VarChar(100)
+  role         Role
+  active       Boolean  @default(true)
+  failedLogins Int      @default(0)
+  lockedUntil  DateTime?
+  createdAt    DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId])
+}
+
+model Customer {
+  id         String   @id @default(uuid()) @db.Char(36)
+  businessId String   @db.Char(36)
+  name       String   @db.VarChar(200)
+  phone      String?  @db.VarChar(50)
+  email      String?  @db.VarChar(200)
+  address    String?  @db.VarChar(300)
+  note       String?  @db.VarChar(500)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  business Business        @relation(fields: [businessId], references: [id])
+  sales    Sale[]
+  payments Payment[]
+  plans    RecurringPlan[]
+
+  @@index([businessId, name])
+}
+
+model Product {
+  id         String   @id @default(uuid()) @db.Char(36)
+  businessId String   @db.Char(36)
+  name       String   @db.VarChar(200)
+  sku        String?  @db.VarChar(64)
+  price      Decimal  @db.Decimal(14, 2)
+  taxRate    Decimal  @default(0) @db.Decimal(5, 2)
+  isService  Boolean  @default(false)
+  trackStock Boolean  @default(false)
+  stockQty   Decimal  @default(0) @db.Decimal(12, 3)
+  lowStockAt Decimal? @db.Decimal(12, 3)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  business Business   @relation(fields: [businessId], references: [id])
+  items    SaleItem[]
+
+  @@unique([businessId, sku])
+  @@index([businessId, name])
+}
+
+model Sale {
+  id              String      @id @default(uuid()) @db.Char(36)
+  businessId      String      @db.Char(36)
+  customerId      String?     @db.Char(36)
+  cashierId       String      @db.Char(36)
+  paymentType     PaymentType
+  status          SaleStatus  @default(COMPLETED)
+  subtotal        Decimal     @db.Decimal(14, 2)
+  discountTotal   Decimal     @db.Decimal(14, 2)
+  taxTotal        Decimal     @db.Decimal(14, 2)
+  total           Decimal     @db.Decimal(14, 2)
+  amountPaid      Decimal     @default(0) @db.Decimal(14, 2)
+  dueDate         DateTime?
+  note            String?     @db.VarChar(500)
+  recurringPlanId String?     @db.Char(36)
+  recurringRunNo  Int?
+  voidedAt        DateTime?
+  voidReason      String?     @db.VarChar(300)
+  voidedById      String?     @db.Char(36)
+  createdAt       DateTime    @default(now())
+
+  business Business      @relation(fields: [businessId], references: [id])
+  customer Customer?     @relation(fields: [customerId], references: [id])
+  plan     RecurringPlan? @relation(fields: [recurringPlanId], references: [id])
+  items    SaleItem[]
+  payments Payment[]
+  invoice  Invoice?
+
+  @@unique([recurringPlanId, recurringRunNo])
+  @@index([businessId, createdAt])
+  @@index([businessId, customerId, status])
+}
+
+model SaleItem {
+  id        String  @id @default(uuid()) @db.Char(36)
+  saleId    String  @db.Char(36)
+  productId String? @db.Char(36)
+  name      String  @db.VarChar(200)
+  quantity  Decimal @db.Decimal(12, 3)
+  unitPrice Decimal @db.Decimal(14, 2)
+  discount  Decimal @db.Decimal(14, 2)
+  taxRate   Decimal @db.Decimal(5, 2)
+  taxAmount Decimal @db.Decimal(14, 2)
+  lineTotal Decimal @db.Decimal(14, 2)
+
+  sale    Sale     @relation(fields: [saleId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+}
+
+// Payments are append-only: never updated, never deleted.
+model Payment {
+  id          String        @id @default(uuid()) @db.Char(36)
+  businessId  String        @db.Char(36)
+  saleId      String        @db.Char(36)
+  customerId  String?       @db.Char(36)
+  amount      Decimal       @db.Decimal(14, 2)
+  method      PaymentMethod
+  note        String?       @db.VarChar(300)
+  createdById String        @db.Char(36)
+  receivedAt  DateTime      @default(now())
+
+  business Business  @relation(fields: [businessId], references: [id])
+  sale     Sale      @relation(fields: [saleId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([businessId, receivedAt])
+  @@index([saleId])
+  @@index([customerId])
+}
+
+model Invoice {
+  id         String   @id @default(uuid()) @db.Char(36)
+  businessId String   @db.Char(36)
+  saleId     String   @unique @db.Char(36)
+  number     String   @db.VarChar(40)
+  issuedAt   DateTime @default(now())
+
+  business Business       @relation(fields: [businessId], references: [id])
+  sale     Sale           @relation(fields: [saleId], references: [id])
+  shares   InvoiceShare[]
+
+  @@unique([businessId, number])
+}
+
+model InvoiceShare {
+  id        String    @id @default(uuid()) @db.Char(36)
+  invoiceId String    @db.Char(36)
+  tokenHash String    @unique @db.Char(64)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+}
+
+model RecurringPlan {
+  id          String        @id @default(uuid()) @db.Char(36)
+  businessId  String        @db.Char(36)
+  customerId  String        @db.Char(36)
+  title       String        @db.VarChar(200)
+  frequency   PlanFrequency
+  startDate   DateTime
+  nextRunAt   DateTime
+  totalRuns   Int?
+  runsDone    Int           @default(0)
+  status      PlanStatus    @default(ACTIVE)
+  items       Json
+  createdById String        @db.Char(36)
+  createdAt   DateTime      @default(now())
+
+  business Business @relation(fields: [businessId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+  sales    Sale[]
+
+  @@index([status, nextRunAt])
+  @@index([businessId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Char(36)
+  businessId String?  @db.Char(36)
+  userId     String?  @db.Char(36)
+  action     String   @db.VarChar(60)
+  entity     String   @db.VarChar(40)
+  entityId   String?  @db.VarChar(64)
+  meta       Json?
+  ip         String?  @db.VarChar(64)
+  createdAt  DateTime @default(now())
+
+  business Business? @relation(fields: [businessId], references: [id])
+
+  @@index([businessId, createdAt])
+  @@index([entity, entityId])
+}
