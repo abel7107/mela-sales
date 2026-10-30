@@ -17,3 +17,6 @@ backend/.env.*
 # Tests and logs
 coverage/
 *.log
+
+# Local auth signing key (never commit)
+backend/data/
