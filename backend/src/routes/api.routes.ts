@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { getHealthStatus } from "../controllers/health.controller";
-import { createSale } from "../controllers/sales.controller";
-import { requireTenantAuth } from "../middleware/auth.middleware";
-import { CreateSaleSchema } from "../schemas/sales.schema";
+import { getHealthStatus } from "../controllers/health.controller.js";
+import { createSale } from "../controllers/sales.controller.js";
+import { requireTenantAuth } from "../middleware/auth.middleware.js";
+import { CreateSaleSchema } from "../schemas/sales.schema.js";
 
 const router = Router();
 
-const validateBody = (schema: any) => (req: any, res: any, next: any) => {
+const validateBody = (schema: any) => (req: any, _res: any, next: any) => {
   schema.parse({ body: req.body });
   next();
 };

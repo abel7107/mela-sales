@@ -1,5 +1,5 @@
 import { Response, NextFunction } from "express";
-import { AuthenticatedRequest } from "../middleware/auth.middleware";
+import { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 
 export const createSale = async (
   req: AuthenticatedRequest,

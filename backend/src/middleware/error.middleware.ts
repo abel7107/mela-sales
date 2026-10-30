@@ -1,18 +1,18 @@
-import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
+import { ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
 
 export const globalErrorHandler: ErrorRequestHandler = (
   err,
-  req,
+  _req,
   res,
-  next,
+  _next,
 ) => {
   if (err instanceof ZodError) {
     res.status(400).json({
       error: {
         code: "VALIDATION_ERROR",
         message: "Invalid request payload attributes.",
-        details: err.errors.map(e => ({
+        details: err.issues.map(e => ({
           field: e.path.join("."),
           issue: e.message,
         })),
