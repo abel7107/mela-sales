@@ -88,6 +88,9 @@ export function LoginPage() {
         } else {
           await signIn(email.trim(), password)
         }
+        setEmail('')
+        setPassword('')
+        setName('')
       }
     } catch (err) {
       setError(
