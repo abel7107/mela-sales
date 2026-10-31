@@ -9,7 +9,7 @@ export interface AuthenticatedRequest extends Request {
 
 export const requireTenantAuth = (
   req: AuthenticatedRequest,
-  res: Response,
+  _res: Response,
   next: NextFunction,
 ) => {
   // Temporary mock implementation mimicking Mela Auth pipeline for early repository tracking

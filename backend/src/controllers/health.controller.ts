@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 
 export const getHealthStatus = async (
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction,
 ) => {

@@ -1,0 +1,43 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: mela-sales-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_NAME:-mela_sales_db}
+      MYSQL_USER: ${DB_USER:-mela_sales_app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-change_me}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u$$MYSQL_USER", "-p$$MYSQL_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-shot: applies database/schema.sql to a fresh database.
+  # Usage: docker compose --profile tools run --rm migrate
+  migrate:
+    image: mysql:8.4
+    profiles: ["tools"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: ${DB_USER:-mela_sales_app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-change_me}
+      MYSQL_DATABASE: ${DB_NAME:-mela_sales_db}
+    volumes:
+      - ./database/schema.sql:/schema.sql:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        mysql -h "$$MYSQL_HOST" -u"$$MYSQL_USER" -p"$$MYSQL_PASSWORD" "$$MYSQL_DATABASE"
+        < /schema.sql && echo "Schema applied."
+
+volumes:
+  mysql-data:
