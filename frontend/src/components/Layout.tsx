@@ -1,6 +1,9 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { Button } from './ui'
+import { Logo } from './Logo'
+import { LanguageSwitcher } from './LanguageSwitcher'
+import { useLanguage } from '../i18n/LanguageContext'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'M3 12h7V3H3v9zm11 9h7v-9h-7v9zM3 21h7v-7H3v7zm11 0h7v-4h-7v4z' },
@@ -13,6 +16,7 @@ const navItems = [
 export function Layout() {
   const { business, role, isOwner, logout, switchBusiness, businesses, user } = useAuth()
   const navigate = useNavigate()
+  const { t } = useLanguage()
 
   if (!business) return null
 
@@ -26,9 +30,7 @@ export function Layout() {
       {/* Sidebar */}
       <aside className="border-b border-slate-200 bg-white lg:flex lg:w-60 lg:flex-col lg:border-b-0 lg:border-r">
         <div className="flex items-center gap-2 px-5 py-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
-            M
-          </div>
+          <Logo compact />
           <span className="text-sm font-semibold text-slate-900">
             {business.name}
           </span>
@@ -60,7 +62,13 @@ export function Layout() {
                   d={item.icon}
                 />
               </svg>
-              {item.label}
+                            {({
+                  Dashboard: t('dashboard'),
+                  Sales: t('sales'),
+                  Products: t('products'),
+                  Customers: t('customers'),
+                  Reports: t('reports'),
+                })[item.label]}
             </NavLink>
           ))}
           {isOwner && (
@@ -93,7 +101,7 @@ export function Layout() {
                   d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                 />
               </svg>
-              Settings
+             {t('settings')}
             </NavLink>
           )}
         </nav>
@@ -112,7 +120,7 @@ export function Layout() {
             onClick={handleLogout}
             className="mt-1 text-xs font-medium text-rose-600 hover:text-rose-500"
           >
-            Sign out
+          {t('logout')}
           </button>
         </div>
       </aside>
@@ -133,6 +141,7 @@ export function Layout() {
               </span>
             </div>
             <div className="flex items-center gap-2">
+              <LanguageSwitcher />
               {businesses.length > 1 && (
                 <select
                   aria-label="Switch business"
@@ -152,7 +161,7 @@ export function Layout() {
                 className="!px-2 !py-1.5 text-xs lg:hidden"
                 onClick={handleLogout}
               >
-                Sign out
+                {t('logout')}
               </Button>
             </div>
           </div>
