@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
-import { createSale, listCustomers, listProducts } from '../api/endpoints'
+import {
+  createCustomer,
+  createSale,
+  listCustomers,
+  listProducts,
+} from '../api/endpoints'
 import { PAYMENT_METHODS } from '../api/types'
 import type { Customer, PaymentMethod, Product, Sale } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
@@ -16,7 +21,15 @@ import {
   subMoney,
   toCents,
 } from '../lib/money'
-import { Button, Card, Field, Input, Select, Textarea } from '../components/ui'
+import {
+  Button,
+  Card,
+  Field,
+  Input,
+  Modal,
+  Select,
+  Textarea,
+} from '../components/ui'
 
 interface CartItem {
   key: string
@@ -26,7 +39,21 @@ interface CartItem {
   unitPrice: string
   quantity: string
 }
+interface CustomerForm {
+  name: string
+  phone: string
+  email: string
+  address: string
+  notes: string
+}
 
+const emptyCustomerForm: CustomerForm = {
+  name: '',
+  phone: '',
+  email: '',
+  address: '',
+  notes: '',
+}
 export function SaleNewPage() {
   const { business } = useAuth()
   const navigate = useNavigate()
@@ -48,6 +75,12 @@ export function SaleNewPage() {
   const [customersLoading, setCustomersLoading] = useState(false)
   const [customer, setCustomer] = useState<Customer | null>(null)
 
+  const [customerModalOpen, setCustomerModalOpen] = useState(false)
+  const [customerForm, setCustomerForm] =
+  useState<CustomerForm>(emptyCustomerForm)
+  const [customerFormError, setCustomerFormError] =
+    useState<string | null>(null)
+  const [customerSaving, setCustomerSaving] = useState(false)
   const [discount, setDiscount] = useState('')
   const [tax, setTax] = useState('')
   const [notes, setNotes] = useState('')
@@ -131,6 +164,48 @@ export function SaleNewPage() {
   const removeLine = (key: string) => {
     setCart((prev) => prev.filter((i) => i.key !== key))
   }
+  const handleCreateCustomer = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setCustomerFormError(null)
+
+  if (!customerForm.name.trim()) {
+    setCustomerFormError('Customer name is required.')
+    return
+  }
+
+  if (
+    customerForm.email.trim() &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerForm.email.trim())
+  ) {
+    setCustomerFormError('Enter a valid email address.')
+    return
+  }
+
+  setCustomerSaving(true)
+
+  try {
+    const newCustomer = await createCustomer(businessId, {
+      name: customerForm.name.trim(),
+      phone: customerForm.phone.trim() || null,
+      email: customerForm.email.trim() || null,
+      address: customerForm.address.trim() || null,
+      notes: customerForm.notes.trim() || null,
+    })
+
+    setCustomer(newCustomer)
+    setCustomerSearch('')
+    setCustomerModalOpen(false)
+    setCustomerForm(emptyCustomerForm)
+  } catch (err) {
+    setCustomerFormError(
+      err instanceof ApiError
+        ? err.message
+        : 'Could not create the customer.',
+    )
+  } finally {
+    setCustomerSaving(false)
+  }
+}
 
   const subtotal = addMoney(
     ...cart.map((i) => lineTotal(i.unitPrice, i.quantity || '0')),
@@ -456,6 +531,18 @@ export function SaleNewPage() {
                       onChange={(e) => setCustomerSearch(e.target.value)}
                       placeholder="Search by name or phone…"
                     />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="mt-2 w-full"
+                      onClick={() => {
+                        setCustomerForm(emptyCustomerForm)
+                        setCustomerFormError(null)
+                        setCustomerModalOpen(true)
+                      }}
+                    >
+                      + Add New Customer
+                    </Button>
                     <div className="mt-2 max-h-40 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
                       {customersLoading && (
                         <p className="px-3 py-2 text-xs text-slate-500">
@@ -617,9 +704,94 @@ export function SaleNewPage() {
           </Button>
           <p className="text-center text-xs text-slate-400">
             Duplicate-submit protection is on (idempotency key).
-          </p>
+                    </p>
         </form>
       </div>
+
+      <Modal
+        open={customerModalOpen}
+        onClose={() => {
+          if (!customerSaving) setCustomerModalOpen(false)
+        }}
+        title="Add New Customer"
+      >
+        <form onSubmit={handleCreateCustomer} className="space-y-4">
+          <Field label="Name">
+            <Input
+              value={customerForm.name}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, name: e.target.value })
+              }
+              autoFocus
+              placeholder="Abebe Kebede"
+            />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Phone (optional)">
+              <Input
+                value={customerForm.phone}
+                onChange={(e) =>
+                  setCustomerForm({ ...customerForm, phone: e.target.value })
+                }
+                placeholder="+251911222333"
+              />
+            </Field>
+
+            <Field label="Email (optional)">
+              <Input
+                value={customerForm.email}
+                onChange={(e) =>
+                  setCustomerForm({ ...customerForm, email: e.target.value })
+                }
+                placeholder="abebe@example.com"
+              />
+            </Field>
+          </div>
+
+          <Field label="Address (optional)">
+            <Input
+              value={customerForm.address}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, address: e.target.value })
+              }
+              placeholder="Dire Dawa"
+            />
+          </Field>
+
+          <Field label="Notes (optional)">
+            <Textarea
+              value={customerForm.notes}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, notes: e.target.value })
+              }
+              rows={2}
+              placeholder="Additional customer information"
+            />
+          </Field>
+
+          {customerFormError && (
+            <p className="text-sm font-medium text-rose-600">
+              {customerFormError}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={customerSaving}
+              onClick={() => setCustomerModalOpen(false)}
+            >
+              Cancel
+            </Button>
+
+            <Button type="submit" busy={customerSaving}>
+              Create Customer
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }
@@ -641,6 +813,8 @@ function Row({
     >
       <span>{label}</span>
       <span>{value}</span>
+     
     </div>
+    
   )
 }
