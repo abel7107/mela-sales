@@ -1,3 +1,4 @@
+
 import { randomUUID } from "node:crypto";
 import {
   Router,
@@ -5,7 +6,11 @@ import {
   type Response,
   type NextFunction,
 } from "express";
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import type {
+  PoolConnection,
+  ResultSetHeader,
+  RowDataPacket,
+} from "mysql2/promise";
 
 import pool from "../config/database.js";
 import { HttpError } from "../middleware/errorMiddleware.js";
@@ -51,6 +56,40 @@ async function loadBusiness(businessId: string): Promise<BusinessRow> {
   return rows[0];
 }
 
+// Verify that the user can access a specific sale.
+async function ensureSaleBranchAccess(
+  businessId: string,
+  saleId: string,
+  membership: MembershipContext | undefined
+): Promise<void> {
+  if (!membership || membership.businessId !== businessId) {
+    throw new HttpError(403, "A valid business membership is required.");
+  }
+
+  // Owners can access every sale in their business.
+  if (membership.role === "OWNER") {
+    return;
+  }
+
+  // Cashiers can access only sales from their assigned branches.
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    `SELECT s.id
+     FROM sales s
+     INNER JOIN branch_memberships bm
+       ON bm.business_id = s.business_id
+      AND bm.branch_id = s.branch_id
+     WHERE s.business_id = ?
+       AND s.id = ?
+       AND bm.membership_id = ?
+     LIMIT 1`,
+    [businessId, saleId, membership.id]
+  );
+
+  if (rows.length === 0) {
+    throw new HttpError(404, "Sale not found in this business.");
+  }
+}
+
 // GET /api/v1/businesses/:businessId/sales/:saleId
 router.get(
   "/",
@@ -59,6 +98,12 @@ router.get(
     try {
       const businessId = requireParam(req, "businessId");
       const saleId = requireParam(req, "saleId");
+
+      const membership = res.locals.businessMembership as
+        | MembershipContext
+        | undefined;
+
+      await ensureSaleBranchAccess(businessId, saleId, membership);
 
       const sale = await loadSaleDetail(businessId, saleId);
 
@@ -89,7 +134,7 @@ router.post(
       | MembershipContext
       | undefined;
 
-    if (!membership) {
+    if (!membership || membership.businessId !== businessId) {
       res.status(403).json({
         status: "error",
         message: "A valid business membership is required.",
@@ -119,7 +164,7 @@ router.post(
       return;
     }
 
-    let connection;
+    let connection: PoolConnection | undefined;
 
     try {
       connection = await pool.getConnection();
@@ -209,6 +254,12 @@ router.get(
       const businessId = requireParam(req, "businessId");
       const saleId = requireParam(req, "saleId");
 
+      const membership = res.locals.businessMembership as
+        | MembershipContext
+        | undefined;
+
+      await ensureSaleBranchAccess(businessId, saleId, membership);
+
       const sale = await loadSaleDetail(businessId, saleId);
 
       if (!sale) {
@@ -254,6 +305,12 @@ router.get(
     try {
       const businessId = requireParam(req, "businessId");
       const saleId = requireParam(req, "saleId");
+
+      const membership = res.locals.businessMembership as
+        | MembershipContext
+        | undefined;
+
+      await ensureSaleBranchAccess(businessId, saleId, membership);
 
       const sale = await loadSaleDetail(businessId, saleId);
 

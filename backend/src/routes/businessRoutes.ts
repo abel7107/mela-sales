@@ -1,3 +1,4 @@
+
 import { randomUUID } from "node:crypto";
 import {
   Router,
@@ -5,7 +6,11 @@ import {
   type Response,
   type NextFunction,
 } from "express";
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import type {
+  PoolConnection,
+  ResultSetHeader,
+  RowDataPacket,
+} from "mysql2/promise";
 
 import pool from "../config/database.js";
 import { HttpError } from "../middleware/errorMiddleware.js";
@@ -36,6 +41,7 @@ interface MembershipRow extends RowDataPacket {
   is_active: number;
   created_at: Date;
 }
+
 interface BranchRow extends RowDataPacket {
   id: string;
   business_id: string;
@@ -223,11 +229,18 @@ router.post(
 
       const business = await findBusiness(businessId);
 
+      if (!business) {
+        throw new HttpError(
+          500,
+          "Business was created but could not be retrieved."
+        );
+      }
+
       res.status(201).json({
         status: "success",
         message: "Business created successfully.",
         data: {
-          ...toBusinessApi(business!),
+          ...toBusinessApi(business),
           membership: { id: membershipId, role: "OWNER" },
         },
       });
@@ -292,9 +305,15 @@ router.patch(
         return;
       }
 
+      const existingBusiness = await findBusiness(businessId);
+
+      if (!existingBusiness) {
+        throw new HttpError(404, "Business not found.");
+      }
+
       const input = parsed.data;
 
-      const [result] = await pool.execute<ResultSetHeader>(
+      await pool.execute<ResultSetHeader>(
         `UPDATE businesses
          SET
            name     = CASE WHEN ? THEN ? ELSE name END,
@@ -315,16 +334,16 @@ router.patch(
         ]
       );
 
-      if (result.affectedRows === 0) {
+      const business = await findBusiness(businessId);
+
+      if (!business) {
         throw new HttpError(404, "Business not found.");
       }
-
-      const business = await findBusiness(businessId);
 
       res.status(200).json({
         status: "success",
         message: "Business updated successfully.",
-        data: toBusinessApi(business!),
+        data: toBusinessApi(business),
       });
     } catch (error) {
       next(error);
@@ -387,54 +406,56 @@ router.post(
         return;
       }
 
-       const input = parsed.data;
+      const input = parsed.data;
+      let authUserId = input.authUserId;
 
-       let authUserId = input.authUserId;
+      if (!authUserId && input.email) {
+        const [userRows] = await pool.execute<RowDataPacket[]>(
+          `SELECT id
+           FROM auth_users
+           WHERE email = ? AND is_active = TRUE
+           LIMIT 1`,
+          [input.email]
+        );
 
-       if (!authUserId && input.email) {
-         const [userRows] = await pool.execute<RowDataPacket[]>(
-           `SELECT id FROM auth_users WHERE email = ? AND is_active = TRUE LIMIT 1`,
-           [input.email]
-         );
+        if (userRows.length === 0) {
+          res.status(404).json({
+            status: "error",
+            message: "No active user found with that email.",
+          });
+          return;
+        }
 
-         if (userRows.length === 0) {
-           res.status(404).json({
-             status: "error",
-             message: "No active user found with that email.",
-           });
-           return;
-         }
+        authUserId = String(userRows[0].id);
+      }
 
-         authUserId = String(userRows[0].id);
-       }
+      if (!authUserId) {
+        res.status(400).json({
+          status: "error",
+          message: "Either authUserId or email is required.",
+        });
+        return;
+      }
 
-       if (!authUserId) {
-         res.status(400).json({
-           status: "error",
-           message: "Either authUserId or email is required.",
-         });
-         return;
-       }
+      const membershipId = randomUUID();
 
-       const membershipId = randomUUID();
+      await pool.execute<ResultSetHeader>(
+        `INSERT INTO business_memberships
+           (id, business_id, auth_user_id, role)
+         VALUES (?, ?, ?, ?)`,
+        [membershipId, businessId, authUserId, input.role]
+      );
 
-       await pool.execute<ResultSetHeader>(
-         `INSERT INTO business_memberships
-            (id, business_id, auth_user_id, role)
-          VALUES (?, ?, ?, ?)`,
-         [membershipId, businessId, authUserId, input.role]
-       );
-
-       res.status(201).json({
-         status: "success",
-         message: "Member added successfully.",
-         data: {
-           id: membershipId,
-           authUserId,
-           role: input.role,
-           isActive: true,
-         },
-       });
+      res.status(201).json({
+        status: "success",
+        message: "Member added successfully.",
+        data: {
+          id: membershipId,
+          authUserId,
+          role: input.role,
+          isActive: true,
+        },
+      });
     } catch (error) {
       if (isDuplicateEntryError(error)) {
         res.status(409).json({
@@ -455,6 +476,8 @@ router.patch(
   "/:businessId/members/:membershipId",
   requireRole("OWNER"),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    let connection: PoolConnection | undefined;
+
     try {
       const businessId = requireParam(req, "businessId");
       const membershipId = requireParam(req, "membershipId");
@@ -484,7 +507,59 @@ router.patch(
         return;
       }
 
-      const [result] = await pool.execute<ResultSetHeader>(
+      connection = await pool.getConnection();
+      await connection.beginTransaction();
+
+      const [existingRows] = await connection.execute<MembershipRow[]>(
+        `SELECT id, business_id, auth_user_id, role, is_active, created_at
+         FROM business_memberships
+         WHERE business_id = ? AND id = ?
+         LIMIT 1
+         FOR UPDATE`,
+        [businessId, membershipId]
+      );
+
+      const existingMember = existingRows[0];
+
+      if (!existingMember) {
+        throw new HttpError(404, "Membership not found in this business.");
+      }
+
+      const nextRole = Object.hasOwn(input, "role")
+        ? input.role!
+        : existingMember.role;
+
+      const nextIsActive = Object.hasOwn(input, "isActive")
+        ? input.isActive!
+        : existingMember.is_active === 1;
+
+      const isRemovingActiveOwner =
+        existingMember.role === "OWNER" &&
+        existingMember.is_active === 1 &&
+        (nextRole !== "OWNER" || !nextIsActive);
+
+      if (isRemovingActiveOwner) {
+        // Lock active OWNER rows to prevent concurrent requests from
+        // removing the last active OWNER.
+        const [activeOwners] = await connection.execute<RowDataPacket[]>(
+          `SELECT id
+           FROM business_memberships
+           WHERE business_id = ?
+             AND role = 'OWNER'
+             AND is_active = TRUE
+           FOR UPDATE`,
+          [businessId]
+        );
+
+        if (activeOwners.length <= 1) {
+          throw new HttpError(
+            409,
+            "The last active OWNER cannot be demoted or deactivated."
+          );
+        }
+      }
+
+      await connection.execute<ResultSetHeader>(
         `UPDATE business_memberships
          SET role = CASE WHEN ? THEN ? ELSE role END,
              is_active = CASE WHEN ? THEN ? ELSE is_active END
@@ -497,9 +572,7 @@ router.patch(
         ]
       );
 
-      if (result.affectedRows === 0) {
-        throw new HttpError(404, "Membership not found in this business.");
-      }
+      await connection.commit();
 
       const [rows] = await pool.execute<MembershipRow[]>(
         `SELECT id, business_id, auth_user_id, role, is_active, created_at
@@ -510,6 +583,10 @@ router.patch(
       );
 
       const row = rows[0];
+
+      if (!row) {
+        throw new HttpError(404, "Membership not found in this business.");
+      }
 
       res.status(200).json({
         status: "success",
@@ -523,10 +600,21 @@ router.patch(
         },
       });
     } catch (error) {
+      if (connection) {
+        try {
+          await connection.rollback();
+        } catch (rollbackError) {
+          console.error("Member update rollback failed:", rollbackError);
+        }
+      }
+
       next(error);
+    } finally {
+      connection?.release();
     }
   }
 );
+
 // GET /api/v1/businesses/:businessId/branches
 // OWNER can list all branches in the business.
 router.get(
@@ -614,6 +702,10 @@ router.post(
 
       const branch = rows[0];
 
+      if (!branch) {
+        throw new HttpError(500, "Branch created but could not be retrieved.");
+      }
+
       res.status(201).json({
         status: "success",
         message: "Branch created successfully.",
@@ -640,7 +732,9 @@ router.post(
       next(error);
     }
   }
-);// PATCH /api/v1/businesses/:businessId/branches/:branchId
+);
+
+// PATCH /api/v1/businesses/:businessId/branches/:branchId
 // OWNER can update or deactivate a branch.
 router.patch(
   "/:businessId/branches/:branchId",
@@ -707,6 +801,10 @@ router.patch(
 
       const branch = rows[0];
 
+      if (!branch) {
+        throw new HttpError(404, "Branch not found.");
+      }
+
       res.status(200).json({
         status: "success",
         message: "Branch updated successfully.",
@@ -734,6 +832,7 @@ router.patch(
     }
   }
 );
+
 // GET /api/v1/businesses/:businessId/branches/:branchId/members
 // OWNER can list employees assigned to a branch.
 router.get(
@@ -790,6 +889,7 @@ router.get(
     }
   }
 );
+
 // POST /api/v1/businesses/:businessId/branches/:branchId/members
 // OWNER assigns an existing CASHIER to a branch.
 router.post(
@@ -831,7 +931,10 @@ router.post(
       }
 
       if (branchRows[0].is_active !== 1) {
-        throw new HttpError(400, "Cannot assign employees to an inactive branch.");
+        throw new HttpError(
+          400,
+          "Cannot assign employees to an inactive branch."
+        );
       }
 
       // Confirm the employee belongs to this business.
@@ -851,7 +954,10 @@ router.post(
       const member = memberRows[0];
 
       if (member.role !== "CASHIER") {
-        throw new HttpError(400, "Only CASHIER employees can be assigned to branches.");
+        throw new HttpError(
+          400,
+          "Only CASHIER employees can be assigned to branches."
+        );
       }
 
       if (member.is_active !== 1) {
@@ -893,4 +999,46 @@ router.post(
     }
   }
 );
+
+// DELETE /api/v1/businesses/:businessId/branches/:branchId/members/:membershipId
+// OWNER removes an employee's branch assignment.
+router.delete(
+  "/:businessId/branches/:branchId/members/:membershipId",
+  requireRole("OWNER"),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const businessId = requireParam(req, "businessId");
+      const branchId = requireParam(req, "branchId");
+      const membershipId = requireParam(req, "membershipId");
+
+      const [result] = await pool.execute<ResultSetHeader>(
+        `DELETE FROM branch_memberships
+         WHERE business_id = ?
+           AND branch_id = ?
+           AND membership_id = ?`,
+        [businessId, branchId, membershipId]
+      );
+
+      if (result.affectedRows === 0) {
+        throw new HttpError(
+          404,
+          "Employee assignment not found for this branch."
+        );
+      }
+
+      res.status(200).json({
+        status: "success",
+        message: "Employee removed from branch successfully.",
+        data: {
+          businessId,
+          branchId,
+          membershipId,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 export default router;

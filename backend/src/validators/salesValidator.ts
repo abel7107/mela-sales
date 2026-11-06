@@ -29,6 +29,8 @@ const saleItemSchema = z
 
 export const createSaleSchema = z
   .object({
+    branchId: z.string().uuid(),
+
     customerId: z.string().uuid().nullable().optional(),
 
     saleType: z.enum(["CASH", "CREDIT"]),

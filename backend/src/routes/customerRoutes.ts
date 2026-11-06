@@ -1,6 +1,12 @@
+
 import { randomUUID } from "node:crypto";
-import { Router, type Request, type Response, type NextFunction } from "express";
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import {
+  Router,
+  type Request,
+  type Response,
+  type NextFunction,
+} from "express";
+import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 
 import pool from "../config/database.js";
 import { HttpError } from "../middleware/errorMiddleware.js";
@@ -19,6 +25,12 @@ import {
 
 const router = Router({ mergeParams: true });
 
+interface MembershipContext {
+  id: string;
+  businessId: string;
+  role: "OWNER" | "CASHIER";
+}
+
 interface CustomerRow extends RowDataPacket {
   id: string;
   business_id: string;
@@ -30,7 +42,6 @@ interface CustomerRow extends RowDataPacket {
   is_active: number;
   created_at: Date;
   updated_at: Date;
-  // Derived: only present on list/balance queries.
   outstanding_balance?: string;
   total_credit_sales?: string;
   total_payments?: string;
@@ -40,6 +51,18 @@ const SELECT_COLUMNS = `
   id, business_id, name, phone, email, address, notes,
   is_active, created_at, updated_at
 `;
+
+router.use(requireAuth);
+
+// Ensure the authenticated membership belongs to the requested business.
+function ensureBusinessMembership(
+  businessId: string,
+  membership: MembershipContext | undefined
+): void {
+  if (!membership || membership.businessId !== businessId) {
+    throw new HttpError(403, "A valid business membership is required.");
+  }
+}
 
 async function findCustomer(
   businessId: string,
@@ -78,16 +101,21 @@ function toApi(row: CustomerRow) {
   };
 }
 
-router.use(requireAuth);
-
 // GET /api/v1/businesses/:businessId/customers
-// OWNER and CASHIER can list customers.
+// OWNER and CASHIER can list business customers.
 router.get(
   "/",
   requireRole("OWNER", "CASHIER"),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const businessId = requireParam(req, "businessId");
+
+      const membership = res.locals.businessMembership as
+        | MembershipContext
+        | undefined;
+
+      ensureBusinessMembership(businessId, membership);
+
       const pagination = getPagination(req);
 
       const includeInactive = getBooleanParam(req, "include_inactive") ?? false;
@@ -109,7 +137,9 @@ router.get(
       const whereSql = where.join(" AND ");
 
       const [countRows] = await pool.execute<RowDataPacket[]>(
-        `SELECT COUNT(*) AS total FROM customers WHERE ${whereSql}`,
+        `SELECT COUNT(*) AS total
+         FROM customers
+         WHERE ${whereSql}`,
         args
       );
 
@@ -132,13 +162,19 @@ router.get(
 );
 
 // POST /api/v1/businesses/:businessId/customers
-// OWNER and CASHIER can create customers (cashiers need them for credit sales).
+// OWNER and CASHIER can create business customers.
 router.post(
   "/",
   requireRole("OWNER", "CASHIER"),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const businessId = requireParam(req, "businessId");
+
+      const membership = res.locals.businessMembership as
+        | MembershipContext
+        | undefined;
+
+      ensureBusinessMembership(businessId, membership);
 
       const parsed = createCustomerSchema.safeParse(req.body);
 
@@ -175,10 +211,14 @@ router.post(
 
       const customer = await findCustomer(businessId, customerId);
 
+      if (!customer) {
+        throw new HttpError(500, "Customer was created but could not be retrieved.");
+      }
+
       res.status(201).json({
         status: "success",
         message: "Customer created successfully.",
-        data: toApi(customer!),
+        data: toApi(customer),
       });
     } catch (error) {
       next(error);
@@ -194,6 +234,12 @@ router.get(
     try {
       const businessId = requireParam(req, "businessId");
       const customerId = requireParam(req, "customerId");
+
+      const membership = res.locals.businessMembership as
+        | MembershipContext
+        | undefined;
+
+      ensureBusinessMembership(businessId, membership);
 
       const customer = await findCustomer(businessId, customerId);
 
@@ -220,6 +266,12 @@ router.patch(
       const businessId = requireParam(req, "businessId");
       const customerId = requireParam(req, "customerId");
 
+      const membership = res.locals.businessMembership as
+        | MembershipContext
+        | undefined;
+
+      ensureBusinessMembership(businessId, membership);
+
       const parsed = updateCustomerSchema.safeParse(req.body);
 
       if (!parsed.success) {
@@ -239,11 +291,11 @@ router.patch(
       const [result] = await pool.execute<ResultSetHeader>(
         `UPDATE customers
          SET
-           name     = CASE WHEN ? THEN ? ELSE name END,
-           phone    = CASE WHEN ? THEN ? ELSE phone END,
-           email    = CASE WHEN ? THEN ? ELSE email END,
-           address  = CASE WHEN ? THEN ? ELSE address END,
-           notes    = CASE WHEN ? THEN ? ELSE notes END,
+           name      = CASE WHEN ? THEN ? ELSE name END,
+           phone     = CASE WHEN ? THEN ? ELSE phone END,
+           email     = CASE WHEN ? THEN ? ELSE email END,
+           address   = CASE WHEN ? THEN ? ELSE address END,
+           notes     = CASE WHEN ? THEN ? ELSE notes END,
            is_active = CASE WHEN ? THEN ? ELSE is_active END
          WHERE business_id = ? AND id = ?`,
         [
@@ -259,15 +311,25 @@ router.patch(
       );
 
       if (result.affectedRows === 0) {
-        throw new HttpError(404, "Customer not found in this business.");
+        // Check whether the customer exists. This also handles
+        // updates where the submitted values are unchanged.
+        const existingCustomer = await findCustomer(businessId, customerId);
+
+        if (!existingCustomer) {
+          throw new HttpError(404, "Customer not found in this business.");
+        }
       }
 
       const customer = await findCustomer(businessId, customerId);
 
+      if (!customer) {
+        throw new HttpError(404, "Customer not found in this business.");
+      }
+
       res.status(200).json({
         status: "success",
         message: "Customer updated successfully.",
-        data: toApi(customer!),
+        data: toApi(customer),
       });
     } catch (error) {
       next(error);
@@ -276,7 +338,7 @@ router.patch(
 );
 
 // DELETE /api/v1/businesses/:businessId/customers/:customerId
-// Soft delete: deactivate instead of physically removing the record.
+// OWNER only. Soft delete: deactivate instead of removing the record.
 router.delete(
   "/:customerId",
   requireRole("OWNER"),
@@ -284,6 +346,12 @@ router.delete(
     try {
       const businessId = requireParam(req, "businessId");
       const customerId = requireParam(req, "customerId");
+
+      const membership = res.locals.businessMembership as
+        | MembershipContext
+        | undefined;
+
+      ensureBusinessMembership(businessId, membership);
 
       const [result] = await pool.execute<ResultSetHeader>(
         `UPDATE customers
@@ -293,15 +361,23 @@ router.delete(
       );
 
       if (result.affectedRows === 0) {
-        throw new HttpError(404, "Customer not found in this business.");
+        const existingCustomer = await findCustomer(businessId, customerId);
+
+        if (!existingCustomer) {
+          throw new HttpError(404, "Customer not found in this business.");
+        }
       }
 
       const customer = await findCustomer(businessId, customerId);
 
+      if (!customer) {
+        throw new HttpError(404, "Customer not found in this business.");
+      }
+
       res.status(200).json({
         status: "success",
         message: "Customer deactivated successfully.",
-        data: toApi(customer!),
+        data: toApi(customer),
       });
     } catch (error) {
       next(error);

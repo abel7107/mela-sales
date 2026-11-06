@@ -163,6 +163,43 @@ router.post(
       connection = await pool.getConnection();
       await connection.beginTransaction();
 
+      // Validate branch access before creating the sale.
+        const [branchRows] = await connection.execute<RowDataPacket[]>(
+          `SELECT id
+          FROM branches
+          WHERE business_id = ?
+            AND id = ?
+            AND is_active = TRUE
+          LIMIT 1
+          FOR UPDATE`,
+          [businessId, input.branchId]
+        );
+
+        if (branchRows.length === 0) {
+          throw new HttpError(404, "Active branch not found in this business.");
+        }
+
+        // Cashiers must be assigned to the selected branch.
+        // Owners can create sales in any active branch.
+        if (membership.role === "CASHIER") {
+          const [assignmentRows] = await connection.execute<RowDataPacket[]>(
+            `SELECT id
+            FROM branch_memberships
+            WHERE business_id = ?
+              AND branch_id = ?
+              AND membership_id = ?
+            LIMIT 1`,
+            [businessId, input.branchId, membership.id]
+          );
+
+          if (assignmentRows.length === 0) {
+            throw new HttpError(
+              403,
+              "You are not assigned to this branch."
+            );
+          }
+        }
+
       // Validate the customer within this business.
       if (input.customerId) {
         const [customers] = await connection.execute<CustomerRow[]>(
@@ -335,6 +372,7 @@ router.post(
           id,
           business_id,
           customer_id,
+          branch_id,
           created_by_membership_id,
           sale_type,
           status,
@@ -344,11 +382,12 @@ router.post(
           total_amount,
           notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           saleId,
           businessId,
           input.customerId ?? null,
+          input.branchId,
           membership.id,
           input.saleType,
           status,
@@ -643,6 +682,27 @@ router.get(
 
       const where: string[] = ["s.business_id = ?"];
       const args: (string | number)[] = [businessId];
+        const membership = res.locals
+    .businessMembership as BusinessMembershipContext | undefined;
+
+          if (!membership || membership.businessId !== businessId) {
+            throw new HttpError(403, "A valid business membership is required.");
+          }
+
+          // Cashiers can only see sales from their assigned branches.
+          if (membership.role === "CASHIER") {
+            where.push(`
+              EXISTS (
+                SELECT 1
+                FROM branch_memberships bm
+                WHERE bm.business_id = s.business_id
+                  AND bm.branch_id = s.branch_id
+                  AND bm.membership_id = ?
+              )
+            `);
+
+            args.push(membership.id);
+          }
 
       if (statuses) {
         where.push(`s.status IN (${statuses.map(() => "?").join(", ")})`);
