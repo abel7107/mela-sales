@@ -170,7 +170,21 @@ router.post(
       connection = await pool.getConnection();
       await connection.beginTransaction();
 
-      const sale = await loadSaleDetail(businessId, saleId);
+      // Lock the sale to serialize voiding with payments and installment operations.
+      const [lockedSales] = await connection.execute<RowDataPacket[]>(
+        `SELECT id
+         FROM sales
+         WHERE business_id = ? AND id = ?
+         LIMIT 1
+         FOR UPDATE`,
+        [businessId, saleId]
+      );
+
+      if (lockedSales.length === 0) {
+        throw new HttpError(404, "Sale not found in this business.");
+      }
+
+      const sale = await loadSaleDetail(businessId, saleId, connection);
 
       if (!sale) {
         throw new HttpError(404, "Sale not found in this business.");
@@ -178,6 +192,25 @@ router.post(
 
       if (sale.status === "VOID") {
         throw new HttpError(409, "This sale has already been voided.");
+      }
+
+      // An active plan must be explicitly cancelled before its sale is voided.
+      const [activePlans] = await connection.execute<RowDataPacket[]>(
+        `SELECT id
+         FROM installment_plans
+         WHERE business_id = ?
+           AND sale_id = ?
+           AND status = 'ACTIVE'
+         LIMIT 1
+         FOR UPDATE`,
+        [businessId, saleId]
+      );
+
+      if (activePlans.length > 0) {
+        throw new HttpError(
+          409,
+          "Cancel the active installment plan before voiding this sale."
+        );
       }
 
       await connection.execute<ResultSetHeader>(

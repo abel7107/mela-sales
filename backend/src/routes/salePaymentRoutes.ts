@@ -5,6 +5,7 @@ import {
   type Response,
   type NextFunction,
 } from "express";
+import type { RowDataPacket } from "mysql2";
 import type { PoolConnection, ResultSetHeader } from "mysql2/promise";
 import { z } from "zod";
 
@@ -49,6 +50,11 @@ const recordPaymentSchema = z
 interface MembershipContext {
   id: string;
   businessId: string;
+}
+
+interface InstallmentAllocationRow extends RowDataPacket {
+  id: string;
+  amount_due: string;
 }
 
 function getIdempotencyKey(req: Request): string | null {
@@ -132,7 +138,22 @@ router.post(
       connection = await pool.getConnection();
       await connection.beginTransaction();
 
-      const sale = await loadSaleDetail(businessId, saleId);
+      // Lock the sale row to prevent concurrent payment transactions
+      // from calculating the balance at the same time.
+      const [lockedSales] = await connection.execute<RowDataPacket[]>(
+        `SELECT id
+         FROM sales
+         WHERE business_id = ? AND id = ?
+         FOR UPDATE`,
+        [businessId, saleId]
+      );
+
+      if (lockedSales.length === 0) {
+        throw new HttpError(404, "Sale not found in this business.");
+      }
+
+      // Load sale details through the same transaction connection.
+      const sale = await loadSaleDetail(businessId, saleId, connection);
 
       if (!sale) {
         throw new HttpError(404, "Sale not found in this business.");
@@ -205,6 +226,104 @@ router.post(
         throw error;
       }
 
+      // Allocate payments to the earliest unpaid installments (FIFO).
+      // The sale row is already locked, so concurrent payments are serialized.
+      const [activePlans] = await connection.execute<RowDataPacket[]>(
+        `SELECT id
+         FROM installment_plans
+         WHERE business_id = ?
+           AND sale_id = ?
+           AND status = 'ACTIVE'
+         LIMIT 1
+         FOR UPDATE`,
+        [businessId, saleId]
+      );
+
+      const installmentAllocations: Array<{
+        installmentId: string;
+        amount: string;
+      }> = [];
+
+      if (activePlans.length > 0) {
+        const planId = String(activePlans[0].id);
+
+        const [installments] =
+          await connection.execute<InstallmentAllocationRow[]>(
+            `SELECT id, amount_due
+             FROM installments
+             WHERE business_id = ?
+               AND sale_id = ?
+               AND plan_id = ?
+             ORDER BY due_date ASC, installment_number ASC
+             FOR UPDATE`,
+            [businessId, saleId, planId]
+          );
+
+        let paymentRemaining = amountCents;
+
+        for (const installment of installments) {
+          if (paymentRemaining === 0n) break;
+
+          const [allocationRows] = await connection.execute<RowDataPacket[]>(
+            `SELECT COALESCE(SUM(allocated_amount), 0) AS allocated_amount
+             FROM installment_payment_allocations
+             WHERE business_id = ?
+               AND sale_id = ?
+               AND installment_id = ?`,
+            [businessId, saleId, installment.id]
+          );
+
+          const amountDue = moneyToCents(String(installment.amount_due));
+          const alreadyAllocated = moneyToCents(
+            String(allocationRows[0]?.allocated_amount ?? "0")
+          );
+
+          const installmentRemaining = amountDue - alreadyAllocated;
+
+          if (installmentRemaining <= 0n) continue;
+
+          const allocationAmount =
+            paymentRemaining < installmentRemaining
+              ? paymentRemaining
+              : installmentRemaining;
+
+          await connection.execute<ResultSetHeader>(
+            `INSERT INTO installment_payment_allocations (
+              id,
+              business_id,
+              sale_id,
+              payment_id,
+              installment_id,
+              allocated_amount
+            )
+            VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+              randomUUID(),
+              businessId,
+              saleId,
+              paymentId,
+              installment.id,
+              centsToMoney(allocationAmount),
+            ]
+          );
+
+          installmentAllocations.push({
+            installmentId: installment.id,
+            amount: centsToMoney(allocationAmount),
+          });
+
+          paymentRemaining -= allocationAmount;
+        }
+
+        // Never record a partially allocated payment against an active plan.
+        if (paymentRemaining > 0n) {
+          throw new HttpError(
+            409,
+            "Payment could not be fully allocated to the active installment plan. The payment was rolled back."
+          );
+        }
+      }
+
       const newStatus = newTotalCents === totalCents ? "PAID" : "OPEN";
 
       if (newStatus === "PAID") {
@@ -240,6 +359,7 @@ router.post(
             method: input.method,
             newStatus,
             balanceDue: centsToMoney(totalCents - newTotalCents),
+            installmentAllocations,
           }),
         ]
       );

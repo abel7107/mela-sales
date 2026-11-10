@@ -7,10 +7,12 @@ describe("createSaleSchema", () => {
   const validItem = {
     productServiceId: "11111111-1111-4111-8111-111111111111",
     quantity: "2",
-  };
+  };const validBranchId = "33333333-3333-4333-8333-333333333333";
+
 
   it("accepts a minimal cash sale", () => {
     const result = createSaleSchema.safeParse({
+      branchId: validBranchId,
       saleType: "CASH",
       items: [validItem],
       paymentMethod: "CASH",
@@ -20,6 +22,7 @@ describe("createSaleSchema", () => {
 
   it("defaults discounts and tax", () => {
     const result = createSaleSchema.parse({
+      branchId: validBranchId,
       saleType: "CASH",
       items: [validItem],
       paymentMethod: "CASH",
@@ -31,6 +34,7 @@ describe("createSaleSchema", () => {
 
   it("requires a customer for credit sales", () => {
     const result = createSaleSchema.safeParse({
+      branchId: validBranchId,
       saleType: "CREDIT",
       items: [validItem],
     });
@@ -39,6 +43,7 @@ describe("createSaleSchema", () => {
 
   it("requires a payment method for cash sales", () => {
     const result = createSaleSchema.safeParse({
+      branchId: validBranchId,
       saleType: "CASH",
       items: [validItem],
     });
@@ -47,6 +52,7 @@ describe("createSaleSchema", () => {
 
   it("requires a payment method for an initial credit payment", () => {
     const result = createSaleSchema.safeParse({
+      branchId: validBranchId,
       saleType: "CREDIT",
       customerId: "22222222-2222-4222-8222-222222222222",
       items: [validItem],
@@ -58,6 +64,7 @@ describe("createSaleSchema", () => {
   it("rejects zero and negative quantities", () => {
     for (const quantity of ["0", "0.000", "-1"]) {
       const result = createSaleSchema.safeParse({
+        branchId: validBranchId,
         saleType: "CASH",
         items: [{ ...validItem, quantity }],
         paymentMethod: "CASH",
@@ -68,6 +75,7 @@ describe("createSaleSchema", () => {
 
   it("rejects unknown fields", () => {
     const result = createSaleSchema.safeParse({
+      branchId: validBranchId,
       saleType: "CASH",
       items: [validItem],
       paymentMethod: "CASH",
@@ -78,6 +86,7 @@ describe("createSaleSchema", () => {
 
   it("rejects an empty item list", () => {
     const result = createSaleSchema.safeParse({
+      branchId: validBranchId,
       saleType: "CASH",
       items: [],
       paymentMethod: "CASH",
@@ -88,6 +97,7 @@ describe("createSaleSchema", () => {
   it("rejects more than 100 items", () => {
     const items = Array.from({ length: 101 }, () => validItem);
     const result = createSaleSchema.safeParse({
+      branchId: validBranchId,
       saleType: "CASH",
       items,
       paymentMethod: "CASH",
@@ -99,6 +109,7 @@ describe("createSaleSchema", () => {
 describe("createProductSchema", () => {
   it("accepts a minimal product", () => {
     const result = createProductSchema.safeParse({
+    
       name: "Coffee",
       type: "PRODUCT",
       price: "12.50",
@@ -108,6 +119,7 @@ describe("createProductSchema", () => {
 
   it("rejects a negative price", () => {
     const result = createProductSchema.safeParse({
+    
       name: "Coffee",
       type: "PRODUCT",
       price: "-1.00",
@@ -117,6 +129,7 @@ describe("createProductSchema", () => {
 
   it("rejects too many decimal places", () => {
     const result = createProductSchema.safeParse({
+      
       name: "Coffee",
       type: "PRODUCT",
       price: "12.505",
@@ -126,6 +139,7 @@ describe("createProductSchema", () => {
 
   it("rejects an empty name", () => {
     const result = createProductSchema.safeParse({
+      
       name: "   ",
       type: "PRODUCT",
       price: "1.00",

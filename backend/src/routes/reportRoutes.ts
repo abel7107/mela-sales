@@ -138,33 +138,41 @@ router.get(
                       THEN s.total_amount END),
                   0
                 ) AS creditAmount,
-                COALESCE(
-                  SUM(CASE WHEN s.status = 'OPEN'
-                      THEN s.total_amount END),
-                  0
-                ) -
-                COALESCE(
-                  (
-                    SELECT SUM(p.amount)
-                    FROM payments p
-                    INNER JOIN sales s2
-                      ON s2.business_id = p.business_id
-                     AND s2.id = p.sale_id
-                    WHERE s2.business_id = ?
-                      AND s2.status = 'OPEN'
-                      AND (
-                        ? = 'OWNER'
-                        OR EXISTS (
-                          SELECT 1
-                          FROM branch_memberships bm
-                          WHERE bm.business_id = s2.business_id
-                            AND bm.branch_id = s2.branch_id
-                            AND bm.membership_id = ?
-                        )
-                      )
-                  ),
-                  0
-                ) AS outstandingAmount
+               COALESCE(
+  (
+    SELECT SUM(
+      GREATEST(
+        s2.total_amount - COALESCE(paid.totalPaid, 0),
+        0
+      )
+    )
+    FROM sales s2
+    LEFT JOIN (
+      SELECT
+        business_id,
+        sale_id,
+        SUM(amount) AS totalPaid
+      FROM payments
+      GROUP BY business_id, sale_id
+    ) paid
+      ON paid.business_id = s2.business_id
+     AND paid.sale_id = s2.id
+    WHERE s2.business_id = ?
+      AND s2.sale_type = 'CREDIT'
+      AND s2.status <> 'VOID'
+      AND (
+        ? = 'OWNER'
+        OR EXISTS (
+          SELECT 1
+          FROM branch_memberships bm
+          WHERE bm.business_id = s2.business_id
+            AND bm.branch_id = s2.branch_id
+            AND bm.membership_id = ?
+        )
+      )
+  ),
+  0
+) AS outstandingAmount
          FROM sales s
          WHERE ${whereSql}`,
         [
@@ -320,8 +328,9 @@ router.get(
            FROM customers c
            LEFT JOIN sales s
              ON s.business_id = c.business_id
-            AND s.customer_id = c.id
-            AND s.status <> 'VOID'
+          AND s.customer_id = c.id
+          AND s.sale_type = 'CREDIT'
+          AND s.status <> 'VOID'
             ${saleBranchCondition}
            LEFT JOIN (
              SELECT business_id,
@@ -365,7 +374,8 @@ router.get(
          FROM customers c
          LEFT JOIN sales s
            ON s.business_id = c.business_id
-          AND s.customer_id = c.id
+         AND s.customer_id = c.id
+          AND s.sale_type = 'CREDIT'
           AND s.status <> 'VOID'
           ${saleBranchCondition}
          LEFT JOIN (
@@ -530,6 +540,102 @@ router.get(
           paymentCount: Number(totals[0].paymentCount),
           totalAmount: totals[0].totalAmount,
         },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// GET /api/v1/businesses/:businessId/reports/installments
+// List installment plans with progress summary.
+router.get(
+  "/installments",
+  requireRole("OWNER", "CASHIER"),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const businessId = requireParam(req, "businessId");
+
+      const membership = res.locals.businessMembership as
+        | MembershipContext
+        | undefined;
+
+      ensureBusinessMembership(businessId, membership);
+
+      const branchCondition =
+        membership?.role === "CASHIER"
+          ? `AND EXISTS (
+               SELECT 1
+               FROM branch_memberships bm
+               WHERE bm.business_id = s.business_id
+                 AND bm.branch_id = s.branch_id
+                 AND bm.membership_id = ?
+             )`
+          : "";
+
+      const args: (string | number)[] = [businessId];
+
+      if (membership?.role === "CASHIER") {
+        args.push(membership.id);
+      }
+
+      const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT
+           ip.id AS planId,
+           ip.sale_id AS saleId,
+           ip.total_amount AS totalAmount,
+           ip.status AS status,
+           ip.created_at AS createdAt,
+           ip.cancelled_at AS cancelledAt,
+           s.status AS saleStatus,
+           c.name AS customerName,
+           (SELECT COUNT(*) FROM installments i
+             WHERE i.business_id = ip.business_id AND i.plan_id = ip.id) AS installmentCount,
+           COALESCE((
+             SELECT SUM(a.allocated_amount)
+             FROM installment_payment_allocations a
+             INNER JOIN installments i
+               ON i.business_id = a.business_id AND i.id = a.installment_id
+             WHERE i.plan_id = ip.id
+           ), 0) AS allocatedTotal,
+           (SELECT MIN(i.due_date)
+             FROM installments i
+             WHERE i.plan_id = ip.id
+               AND i.amount_due > COALESCE((
+                 SELECT SUM(a.allocated_amount)
+                 FROM installment_payment_allocations a
+                 WHERE a.installment_id = i.id
+               ), 0)
+           ) AS nextDueDate
+         FROM installment_plans ip
+         INNER JOIN sales s
+           ON s.business_id = ip.business_id
+          AND s.id = ip.sale_id
+         LEFT JOIN customers c
+           ON c.business_id = s.business_id
+          AND c.id = s.customer_id
+         WHERE ip.business_id = ?
+           ${branchCondition}
+         ORDER BY ip.created_at DESC
+         LIMIT 200`,
+        args
+      );
+
+      res.status(200).json({
+        status: "success",
+        data: rows.map((row) => ({
+          planId: row.planId,
+          saleId: row.saleId,
+          totalAmount: row.totalAmount,
+          status: row.status,
+          createdAt: row.createdAt,
+          cancelledAt: row.cancelledAt,
+          saleStatus: row.saleStatus,
+          customerName: row.customerName,
+          installmentCount: Number(row.installmentCount),
+          allocatedTotal: row.allocatedTotal,
+          nextDueDate: row.nextDueDate,
+        })),
       });
     } catch (error) {
       next(error);

@@ -616,21 +616,37 @@ router.patch(
 );
 
 // GET /api/v1/businesses/:businessId/branches
-// OWNER can list all branches in the business.
+// OWNER lists all branches; CASHIER lists only assigned branches.
 router.get(
   "/:businessId/branches",
-  requireRole("OWNER"),
+  requireRole("OWNER", "CASHIER"),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const businessId = requireParam(req, "businessId");
+
+      const membership = res.locals.businessMembership as
+        | { id: string; businessId: string; role: "OWNER" | "CASHIER" }
+        | undefined;
+
+      const params: string[] = [businessId];
+      let where = "WHERE business_id = ?";
+
+      if (membership?.role === "CASHIER") {
+        where += ` AND id IN (
+          SELECT branch_id
+          FROM branch_memberships
+          WHERE business_id = ? AND membership_id = ?
+        )`;
+        params.push(businessId, membership.id);
+      }
 
       const [rows] = await pool.execute<BranchRow[]>(
         `SELECT id, business_id, name, address, phone,
                 is_active, created_at, updated_at
          FROM branches
-         WHERE business_id = ?
+         ${where}
          ORDER BY created_at ASC`,
-        [businessId]
+        params
       );
 
       res.status(200).json({

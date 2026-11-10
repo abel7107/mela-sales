@@ -2,16 +2,19 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import {
+  cancelInstallmentPlan,
+  createInstallmentPlan,
+  getInstallmentPlan,
   getInvoicePrintHtml,
   getSale,
   recordPayment,
   voidSale,
 } from '../api/endpoints'
 import { PAYMENT_METHODS } from '../api/types'
-import type { PaymentMethod, Sale } from '../api/types'
+import type { InstallmentPlan, PaymentMethod, Sale } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { useQuery } from '../lib/hooks'
-import { formatDateTime, formatMoney, normalizeMoney, toCents } from '../lib/money'
+import { formatDate, formatDateTime, formatMoney, normalizeMoney, toCents } from '../lib/money'
 import {
   Badge,
   Button,
@@ -60,6 +63,24 @@ export function SaleDetailPage() {
 
   const [printBusy, setPrintBusy] = useState(false)
   const [printError, setPrintError] = useState<string | null>(null)
+
+  const {
+    data: installmentPlan,
+    error: installmentError,
+    loading: installmentLoading,
+    reload: reloadInstallmentPlan,
+  } = useQuery<InstallmentPlan>(
+    (signal) => getInstallmentPlan(businessId, saleId, { signal }),
+    [businessId, saleId],
+  )
+
+  const [planOpen, setPlanOpen] = useState(false)
+  const [planRows, setPlanRows] = useState<Array<{ amount: string; dueDate: string }>>([
+    { amount: '', dueDate: '' },
+  ])
+  const [planErrorState, setPlanErrorState] = useState<ApiError | null>(null)
+  const [planBusy, setPlanBusy] = useState(false)
+  const [cancelBusy, setCancelBusy] = useState(false)
 
   if (!business) return null
   const currency = business.currency
@@ -133,6 +154,49 @@ export function SaleDetailPage() {
       )
     } finally {
       setVoidBusy(false)
+    }
+  }
+
+  const addPlanRow = () => setPlanRows((rows) => [...rows, { amount: '', dueDate: '' }])
+  const removePlanRow = (index: number) =>
+    setPlanRows((rows) => rows.filter((_, i) => i !== index))
+  const updatePlanRow = (index: number, field: 'amount' | 'dueDate', value: string) =>
+    setPlanRows((rows) =>
+      rows.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+    )
+
+  const submitPlan = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPlanErrorState(null)
+    const installments = planRows.map((row) => ({
+      amountDue: normalizeMoney(row.amount) ?? '',
+      dueDate: row.dueDate.trim(),
+    }))
+    if (installments.some((i) => !i.amountDue || !i.dueDate)) {
+      setPlanErrorState(new ApiError(400, 'Fill in every installment amount and due date.'))
+      return
+    }
+    setPlanBusy(true)
+    try {
+      await createInstallmentPlan(business.id, sale.id, { installments })
+      setPlanOpen(false)
+      reloadInstallmentPlan()
+    } catch (err) {
+      setPlanErrorState(err instanceof ApiError ? err : new ApiError(0, 'Could not create plan.'))
+    } finally {
+      setPlanBusy(false)
+    }
+  }
+
+  const submitCancelPlan = async () => {
+    setCancelBusy(true)
+    try {
+      await cancelInstallmentPlan(business.id, sale.id)
+      reloadInstallmentPlan()
+    } catch {
+      // ignore; could show error
+    } finally {
+      setCancelBusy(false)
     }
   }
 
@@ -288,6 +352,104 @@ export function SaleDetailPage() {
               </TableWrap>
             )}
           </Card>
+
+          {sale.saleType === 'CREDIT' && (
+            <Card>
+              <div className="border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Installment plan
+                </h2>
+                {installmentPlan?.status === 'ACTIVE' && isOwner && (
+                  <Button
+                    variant="danger"
+                    busy={cancelBusy}
+                    onClick={submitCancelPlan}
+                  >
+                    Cancel plan
+                  </Button>
+                )}
+              </div>
+              {installmentLoading && !installmentPlan && !(installmentError?.status === 404) && (
+                <p className="px-4 py-6 text-sm text-slate-500">Loading plan…</p>
+              )}
+              {installmentError && installmentError.status !== 404 && (
+                <p className="px-4 py-6 text-sm text-rose-600">
+                  {installmentError.message}
+                </p>
+              )}
+              {installmentError?.status === 404 && (
+                <div className="px-4 py-6 space-y-3">
+                  <p className="text-sm text-slate-500">
+                    No installment plan for this sale.
+                  </p>
+                  {sale.status === 'OPEN' && toCents(sale.balanceDue) > 0 && (
+                    <Button onClick={() => setPlanOpen(true)}>
+                      Create installment plan
+                    </Button>
+                  )}
+                </div>
+              )}
+              {installmentPlan && (
+                <div className="space-y-3 p-4">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <Badge tone={installmentPlan.status === 'ACTIVE' ? 'green' : 'slate'}>
+                      {installmentPlan.status}
+                    </Badge>
+                    <span className="text-slate-600">
+                      Total: {formatMoney(installmentPlan.totalAmount, currency)}
+                    </span>
+                    <span className="text-slate-500">
+                      Created {formatDateTime(installmentPlan.createdAt)}
+                    </span>
+                  </div>
+                  <TableWrap>
+                    <thead>
+                      <tr className="bg-slate-50">
+                        <Th>#</Th>
+                        <Th>Due date</Th>
+                        <Th className="text-right">Amount</Th>
+                        <Th className="text-right">Allocated</Th>
+                        <Th className="text-right">Remaining</Th>
+                        <Th>Status</Th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {installmentPlan.installments.map((inst) => (
+                        <tr key={inst.id} className="hover:bg-slate-50">
+                          <Td>{inst.installmentNumber}</Td>
+                          <Td>{formatDate(inst.dueDate)}</Td>
+                          <Td className="text-right">
+                            {formatMoney(inst.amountDue, currency)}
+                          </Td>
+                          <Td className="text-right">
+                            {formatMoney(inst.amountAllocated, currency)}
+                          </Td>
+                          <Td className="text-right">
+                            {formatMoney(inst.remainingAmount, currency)}
+                          </Td>
+                          <Td>
+                            <Badge
+                              tone={
+                                inst.status === 'PAID'
+                                  ? 'green'
+                                  : inst.status === 'OVERDUE'
+                                    ? 'rose'
+                                    : inst.status === 'DUE_TODAY'
+                                      ? 'amber'
+                                      : 'sky'
+                              }
+                            >
+                              {inst.status.replace('_', ' ')}
+                            </Badge>
+                          </Td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </TableWrap>
+                </div>
+              )}
+            </Card>
+          )}
 
           {sale.notes && (
             <Card className="p-4">
@@ -457,6 +619,64 @@ export function SaleDetailPage() {
             </Button>
             <Button type="submit" variant="danger" busy={voidBusy}>
               Void sale
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Installment plan modal */}
+      <Modal open={planOpen} onClose={() => setPlanOpen(false)} title="Create installment plan">
+        <form onSubmit={submitPlan} className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Total must equal the remaining balance:{' '}
+            <span className="font-semibold text-slate-900">
+              {formatMoney(sale.balanceDue, currency)}
+            </span>
+          </p>
+          <div className="space-y-2">
+            {planRows.map((row, index) => (
+              <div key={index} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <Field label="Amount">
+                  <Input
+                    value={row.amount}
+                    onChange={(e) => updatePlanRow(index, 'amount', e.target.value)}
+                    inputMode="decimal"
+                  />
+                </Field>
+                <Field label="Due date">
+                  <Input
+                    type="date"
+                    value={row.dueDate}
+                    onChange={(e) => updatePlanRow(index, 'dueDate', e.target.value)}
+                  />
+                </Field>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => removePlanRow(index)}
+                    disabled={planRows.length <= 1}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <Button type="button" variant="secondary" onClick={addPlanRow}>
+            Add installment
+          </Button>
+          {planErrorState && (
+            <p className="text-sm font-medium text-rose-600">
+              {planErrorState.message}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setPlanOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" busy={planBusy}>
+              Create plan
             </Button>
           </div>
         </form>

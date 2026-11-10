@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
-import { addMember, listMembers, updateBusiness, updateMember } from '../api/endpoints'
-import type { Member, Role } from '../api/types'
+import { addMember, assignBranchMember, createBranch, listBranches, listBranchMembers, listMembers, unassignBranchMember, updateBranch, updateBusiness, updateMember } from '../api/endpoints'
+import type { Branch, Member, Role } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { useQuery } from '../lib/hooks'
 import {
@@ -49,6 +49,7 @@ export function SettingsPage() {
       />
 
       <MembersCard businessId={business.id} />
+      <BranchesCard businessId={business.id} />
     </div>
   )
 }
@@ -363,5 +364,257 @@ function MembersCard({ businessId }: { businessId: string }) {
         </>
       )}
     </Card>
+  )
+}
+
+function BranchesCard({ businessId }: { businessId: string }) {
+  const { data, error, loading, reload } = useQuery(
+    (signal) => listBranches(businessId, { signal }),
+    [businessId],
+  )
+  const branches = data ?? []
+
+  const [name, setName] = useState('')
+  const [address, setAddress] = useState('')
+  const [phone, setPhone] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<ApiError | null>(null)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormError(null)
+    if (!name.trim()) {
+      setFormError('Branch name is required.')
+      return
+    }
+    setBusy(true)
+    try {
+      await createBranch(businessId, {
+        name: name.trim(),
+        address: address.trim() || null,
+        phone: phone.trim() || null,
+      })
+      setName('')
+      setAddress('')
+      setPhone('')
+      reload()
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : 'Could not create branch.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const toggleActive = async (branch: Branch) => {
+    setActionError(null)
+    try {
+      await updateBranch(businessId, branch.id, { isActive: !branch.isActive })
+      reload()
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err : new ApiError(0, 'Update failed.'))
+    }
+  }
+
+  return (
+    <Card>
+      <div className="border-b border-slate-200 px-5 py-3">
+        <h2 className="text-sm font-semibold text-slate-900">Branches</h2>
+        <p className="mt-0.5 text-xs text-slate-500">
+          Create branches and assign cashiers to them.
+        </p>
+      </div>
+
+      <form
+        onSubmit={submit}
+        className="flex flex-wrap items-end gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3"
+      >
+        <label className="block flex-1">
+          <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+            Name
+          </span>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Main Branch" />
+        </label>
+        <label className="block flex-1">
+          <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+            Address
+          </span>
+          <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Addis Ababa" />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+            Phone
+          </span>
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+251..." />
+        </label>
+        <Button type="submit" busy={busy}>
+          Add branch
+        </Button>
+        {formError && (
+          <p className="w-full text-sm font-medium text-rose-600">{formError}</p>
+        )}
+      </form>
+
+      {actionError && (
+        <div className="px-5 pt-3">
+          <ErrorBanner error={actionError} />
+        </div>
+      )}
+      {error && (
+        <div className="px-5 pt-3">
+          <ErrorBanner error={error} onRetry={reload} />
+        </div>
+      )}
+      {loading && !data && <LoadingBlock label="Loading branches…" />}
+
+      {!loading && !error && (
+        <>
+          {branches.length === 0 ? (
+            <EmptyState title="No branches yet" hint="Create your first branch above." />
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {branches.map((branch) => (
+                <BranchRow
+                  key={branch.id}
+                  businessId={businessId}
+                  branch={branch}
+                  onToggle={() => void toggleActive(branch)}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </Card>
+  )
+}
+
+function BranchRow({
+  businessId,
+  branch,
+  onToggle,
+}: {
+  businessId: string
+  branch: Branch
+  onToggle: () => void
+}) {
+  const { data: members, reload: reloadMembers } = useQuery(
+    (signal) => listBranchMembers(businessId, branch.id, { signal }),
+    [businessId, branch.id],
+  )
+  const { data: allMembers } = useQuery(
+    (signal) => listMembers(businessId, { signal }),
+    [businessId],
+  )
+
+  const [selectedMember, setSelectedMember] = useState('')
+  const [assignBusy, setAssignBusy] = useState(false)
+  const [actionError, setActionError] = useState<ApiError | null>(null)
+
+  const assignedIds = new Set((members ?? []).map((m) => m.id))
+  const available = (allMembers ?? []).filter(
+    (m) => m.role === 'CASHIER' && m.isActive && !assignedIds.has(m.id),
+  )
+
+  const assign = async () => {
+    if (!selectedMember) return
+    setActionError(null)
+    setAssignBusy(true)
+    try {
+      await assignBranchMember(businessId, branch.id, selectedMember)
+      setSelectedMember('')
+      reloadMembers()
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err : new ApiError(0, 'Assign failed.'))
+    } finally {
+      setAssignBusy(false)
+    }
+  }
+
+  const unassign = async (membershipId: string) => {
+    setActionError(null)
+    try {
+      await unassignBranchMember(businessId, branch.id, membershipId)
+      reloadMembers()
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err : new ApiError(0, 'Remove failed.'))
+    }
+  }
+
+  return (
+    <div className="px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-medium text-slate-900">{branch.name}</p>
+          <p className="text-xs text-slate-500">
+            {branch.address ?? 'No address'} · {branch.phone ?? 'No phone'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge tone={branch.isActive ? 'green' : 'slate'}>
+            {branch.isActive ? 'Active' : 'Inactive'}
+          </Badge>
+          <Button variant="secondary" className="!px-2 !py-1 text-xs" onClick={onToggle}>
+            {branch.isActive ? 'Deactivate' : 'Reactivate'}
+          </Button>
+        </div>
+      </div>
+
+      {actionError && (
+        <div className="mt-2">
+          <ErrorBanner error={actionError} />
+        </div>
+      )}
+
+      <div className="mt-3 space-y-2">
+        <p className="text-xs font-medium uppercase text-slate-500">
+          Assigned cashiers
+        </p>
+        {(members ?? []).length === 0 ? (
+          <p className="text-sm text-slate-500">No cashiers assigned.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {(members ?? []).map((m) => (
+              <span
+                key={m.id}
+                className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700"
+              >
+                {m.authUserId}
+                <button
+                  type="button"
+                  className="text-rose-600 hover:text-rose-500"
+                  onClick={() => void unassign(m.id)}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-end gap-2">
+          <Select
+            value={selectedMember}
+            onChange={(e) => setSelectedMember(e.target.value)}
+            className="!w-60"
+          >
+            <option value="">Select cashier to assign</option>
+            {available.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.authUserId}
+              </option>
+            ))}
+          </Select>
+          <Button
+            variant="secondary"
+            busy={assignBusy}
+            onClick={() => void assign()}
+            disabled={!selectedMember}
+          >
+            Assign
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }

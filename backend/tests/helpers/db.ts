@@ -5,18 +5,24 @@ import pool from "../../src/config/database.js";
  * Foreign keys in the schema are ON DELETE RESTRICT, so order matters.
  */
 export async function cleanupBusiness(businessId: string): Promise<void> {
-  const tables: [string, string][] = [
-    ["audit_events", "business_id"],
-    ["payments", "business_id"],
-    ["invoices", "business_id"],
-    ["invoice_sequences", "business_id"],
-    ["sale_lines", "business_id"],
-    ["sales", "business_id"],
-    ["customers", "business_id"],
-    ["product_services", "business_id"],
-    ["business_memberships", "business_id"],
-    ["businesses", "id"],
-  ];
+const tables: [string, string][] = [
+  ["audit_events", "business_id"],
+  ["branch_memberships", "business_id"],
+  ["installment_payment_allocations", "business_id"],
+  ["notifications", "business_id"],
+  ["installments", "business_id"],
+  ["installment_plans", "business_id"],
+  ["payments", "business_id"],
+  ["invoices", "business_id"],
+  ["invoice_sequences", "business_id"],
+  ["sale_lines", "business_id"],
+  ["sales", "business_id"],
+  ["customers", "business_id"],
+  ["product_services", "business_id"],
+  ["business_memberships", "business_id"],
+  ["branches", "business_id"],
+  ["businesses", "id"],
+];
 
   for (const [table, column] of tables) {
     await pool.execute(`DELETE FROM ${table} WHERE ${column} = ?`, [

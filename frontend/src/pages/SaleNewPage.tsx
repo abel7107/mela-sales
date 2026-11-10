@@ -4,11 +4,12 @@ import { ApiError } from '../api/client'
 import {
   createCustomer,
   createSale,
+  listBranches,
   listCustomers,
   listProducts,
 } from '../api/endpoints'
 import { PAYMENT_METHODS } from '../api/types'
-import type { Customer, PaymentMethod, Product, Sale } from '../api/types'
+import type { Branch, Customer, PaymentMethod, Product, Sale } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { useDebounced } from '../lib/hooks'
 import {
@@ -60,6 +61,9 @@ export function SaleNewPage() {
   const businessId = business?.id ?? ''
   const currency = business?.currency ?? 'ETB'
 
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [branchId, setBranchId] = useState('')
+
   const [productSearch, setProductSearch] = useState('')
   const debouncedProductSearch = useDebounced(productSearch, 300)
   const [productResults, setProductResults] = useState<Product[]>([])
@@ -91,6 +95,17 @@ export function SaleNewPage() {
   const [error, setError] = useState<ApiError | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const idempotencyKey = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!businessId) return
+    listBranches(businessId)
+      .then((items) => {
+        const active = items.filter((b) => b.isActive)
+        setBranches(active)
+        if (active.length > 0) setBranchId((prev) => prev || active[0].id)
+      })
+      .catch(() => setBranches([]))
+  }, [businessId])
 
   useEffect(() => {
     if (!businessId) return
@@ -272,6 +287,7 @@ export function SaleNewPage() {
     const needsPaymentMethod = saleType === 'CASH' || hasInitialPayment
 
     const body = {
+      branchId,
       saleType,
       items: cart.map((i) => ({
         productServiceId: i.productServiceId,
@@ -325,6 +341,17 @@ export function SaleNewPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
+          <Card className="p-4">
+            <Field label="Branch">
+              <Select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </Card>
           <Card className="p-4">
             <Field label="Add product or service">
               <Input

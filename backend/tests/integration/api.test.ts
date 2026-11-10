@@ -187,6 +187,8 @@ describe("end-to-end sales workflow", () => {
   let customerId: string;
   let saleId: string;
   let invoiceNumber: string;
+  let branchId: string;
+  let cashierMembershipId: string;
 
   it("creates a business with the creator as OWNER", async () => {
     const res = await api("POST", "/api/v1/businesses", {
@@ -204,16 +206,49 @@ describe("end-to-end sales workflow", () => {
   });
 
   it("grants the cashier an early membership", async () => {
-    const res = await api(
-      "POST",
-      `/api/v1/businesses/${businessId}/members`,
-      {
-        token: tokens.owner,
-        body: { authUserId: CASHIER_USER, role: "CASHIER" },
-      }
-    );
-    expect(res.status).toBe(201);
-  });
+  const res = await api(
+    "POST",
+    `/api/v1/businesses/${businessId}/members`,
+    {
+      token: tokens.owner,
+      body: { authUserId: CASHIER_USER, role: "CASHIER" },
+    }
+  );
+
+  expect(res.status).toBe(201);
+
+  cashierMembershipId = res.json.data.id;
+  expect(cashierMembershipId).toBeTruthy();
+});
+     it("creates the main branch", async () => {
+  const res = await api(
+    "POST",
+    `/api/v1/businesses/${businessId}/branches`,
+    {
+      token: tokens.owner,
+      body: { name: "Main Branch" },
+    }
+  );
+
+  expect(res.status).toBe(201);
+
+  branchId = res.json.data.id;
+  expect(branchId).toBeTruthy();
+});
+
+it("assigns the cashier to the main branch", async () => {
+  const res = await api(
+    "POST",
+    `/api/v1/businesses/${businessId}/branches/${branchId}/members`,
+    {
+      token: tokens.owner,
+      body: { membershipId: cashierMembershipId },
+    }
+  );
+
+  expect(res.status).toBe(201);
+  expect(res.json.data.membershipId).toBe(cashierMembershipId);
+});
 
   it("lists the caller's businesses", async () => {
     const res = await api("GET", "/api/v1/businesses", {
@@ -354,6 +389,7 @@ describe("end-to-end sales workflow", () => {
       {
         token: tokens.cashier,
         body: {
+          branchId,
           saleType: "CREDIT",
           items: [{ productServiceId: productId, quantity: "2" }],
         },
@@ -369,6 +405,7 @@ describe("end-to-end sales workflow", () => {
       {
         token: tokens.cashier,
         body: {
+          branchId,
           saleType: "CASH",
           paymentMethod: "CASH",
           items: [{ productServiceId: productId, quantity: "2" }],
@@ -389,6 +426,7 @@ describe("end-to-end sales workflow", () => {
       {
         token: tokens.cashier,
         body: {
+          branchId,
           saleType: "CASH",
           paymentMethod: "CASH",
           items: [
@@ -407,6 +445,7 @@ describe("end-to-end sales workflow", () => {
       {
         token: tokens.cashier,
         body: {
+          branchId,
           saleType: "CREDIT",
           customerId,
           items: [{ productServiceId: productId, quantity: "3" }],
@@ -434,7 +473,7 @@ describe("end-to-end sales workflow", () => {
   it("does not leak sales of a business the caller cannot access", async () => {
     const res = await api(
       "GET",
-      "/api/v1/businesses/00000000-0000-4000-8000-000000000000/sales/00000000-0000-4000-8000-000000000000",
+      `/api/v1/businesses/00000000-0000-4000-8000-000000000000/sales/00000000-0000-4000-800<PASSWORD>`,
       { token: tokens.owner }
     );
     expect(res.status).toBe(403);

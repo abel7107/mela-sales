@@ -1,4 +1,5 @@
 import type { RowDataPacket } from "mysql2";
+import type { Pool, PoolConnection } from "mysql2/promise";
 import pool from "../config/database.js";
 
 export interface SaleLine {
@@ -117,9 +118,10 @@ function subtractMoney(total: string, paid: string): string {
  */
 export async function loadSaleDetail(
   businessId: string,
-  saleId: string
+  saleId: string,
+  executor: Pool | PoolConnection = pool
 ): Promise<SaleDetail | null> {
-  const [headers] = await pool.execute<SaleHeaderRow[]>(
+  const [headers] = await executor.execute<SaleHeaderRow[]>(
     `SELECT s.id,
             s.business_id,
             s.customer_id,
@@ -157,7 +159,7 @@ export async function loadSaleDetail(
 
   if (!header) return null;
 
-  const [lineRows] = await pool.execute<LineRow[]>(
+  const [lineRows] = await executor.execute<LineRow[]>(
     `SELECT id, product_service_id, item_name, item_type, sku_snapshot,
             quantity, unit_price, discount_amount, line_total
      FROM sale_lines
@@ -166,7 +168,7 @@ export async function loadSaleDetail(
     [businessId, saleId]
   );
 
-  const [paymentRows] = await pool.execute<PaymentRow[]>(
+  const [paymentRows] = await executor.execute<PaymentRow[]>(
     `SELECT id, amount, method, reference, notes, received_at,
             received_by_membership_id
      FROM payments

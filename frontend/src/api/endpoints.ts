@@ -10,10 +10,13 @@ import {
 import type {
   AuthSession,
   AuthUser,
+  Branch,
   Business,
   CreateSaleBody,
   Customer,
   CustomerBalance,
+  InstallmentPlan,
+  InstallmentPlanSummary,
   Member,
   PaymentMethod,
   PaymentReportRow,
@@ -86,6 +89,55 @@ export function updateBusiness(
   >,
 ) {
   return apiPatch<Business>(B(businessId), body).then((e) => e.data)
+}
+
+// --- Branches ---
+
+export function listBranches(businessId: string, opts: RequestOptions = {}) {
+  return apiGet<Branch[]>(`${B(businessId)}/branches`, opts).then((e) => e.data)
+}
+
+export function createBranch(
+  businessId: string,
+  body: { name: string; address?: string | null; phone?: string | null },
+) {
+  return apiPost<Branch>(`${B(businessId)}/branches`, body).then((e) => e.data)
+}
+
+export function updateBranch(
+  businessId: string,
+  branchId: string,
+  body: Partial<{ name: string; address: string | null; phone: string | null; isActive: boolean }>,
+) {
+  return apiPatch<Branch>(`${B(businessId)}/branches/${branchId}`, body).then(
+    (e) => e.data,
+  )
+}
+
+export function listBranchMembers(businessId: string, branchId: string, opts: RequestOptions = {}) {
+  return apiGet<Member[]>(`${B(businessId)}/branches/${branchId}/members`, opts).then(
+    (e) => e.data,
+  )
+}
+
+export function assignBranchMember(
+  businessId: string,
+  branchId: string,
+  membershipId: string,
+) {
+  return apiPost<void>(`${B(businessId)}/branches/${branchId}/members`, {
+    membershipId,
+  }).then((e) => e.data)
+}
+
+export function unassignBranchMember(
+  businessId: string,
+  branchId: string,
+  membershipId: string,
+) {
+  return apiDelete<void>(
+    `${B(businessId)}/branches/${branchId}/members/${membershipId}`,
+  ).then((e) => e.data)
 }
 
 export function listMembers(businessId: string, opts: RequestOptions = {}) {
@@ -320,6 +372,39 @@ export function getInvoicePrintHtml(
   return apiGetText(`${B(businessId)}/sales/${saleId}/invoice/print`, opts)
 }
 
+// --- Installments ---
+
+export function getInstallmentPlan(
+  businessId: string,
+  saleId: string,
+  opts: RequestOptions = {},
+) {
+  return apiGet<InstallmentPlan>(
+    `${B(businessId)}/sales/${saleId}/installments`,
+    opts,
+  ).then((e) => e.data)
+}
+
+export function createInstallmentPlan(
+  businessId: string,
+  saleId: string,
+  body: {
+    installments: Array<{ amountDue: string; dueDate: string }>
+  },
+) {
+  return apiPost<InstallmentPlan>(
+    `${B(businessId)}/sales/${saleId}/installments`,
+    body,
+  ).then((e) => e.data)
+}
+
+export function cancelInstallmentPlan(businessId: string, saleId: string) {
+  return apiPost<InstallmentPlan>(
+    `${B(businessId)}/sales/${saleId}/installments/cancel`,
+    {},
+  ).then((e) => e.data)
+}
+
 // --- Reports ---
 
 export function salesSummary(
@@ -363,4 +448,14 @@ export function paymentsReport(
     `${B(businessId)}/reports/payments${buildQuery(params)}`,
     opts,
   )
+}
+
+export function listInstallmentPlans(
+  businessId: string,
+  opts: RequestOptions = {},
+) {
+  return apiGet<InstallmentPlanSummary[]>(
+    `${B(businessId)}/reports/installments`,
+    opts,
+  ).then((e) => e.data)
 }
