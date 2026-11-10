@@ -154,10 +154,10 @@ export function ProductsPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
             Products & services
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             {isOwner
               ? 'Create, price and deactivate what you sell.'
               : 'Read-only catalog for cashiers.'}
@@ -168,7 +168,7 @@ export function ProductsPage() {
 
       <Card className="flex flex-wrap items-end gap-3 p-4">
         <label className="block min-w-52 flex-1">
-          <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+          <span className="mb-1 block text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             Search
           </span>
           <Input
@@ -181,7 +181,7 @@ export function ProductsPage() {
           />
         </label>
         {isOwner && (
-          <label className="flex items-center gap-2 pb-2 text-sm text-slate-600">
+          <label className="flex items-center gap-2 pb-2 text-sm text-slate-600 dark:text-slate-300">
             <input
               type="checkbox"
               checked={includeInactive}
@@ -189,7 +189,7 @@ export function ProductsPage() {
                 setIncludeInactive(e.target.checked)
                 setPage(1)
               }}
-              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500"
             />
             Include inactive
           </label>
@@ -220,7 +220,7 @@ export function ProductsPage() {
             <>
               <TableWrap>
                 <thead>
-                  <tr className="bg-slate-50">
+                  <tr className="bg-slate-50 dark:bg-slate-900">
                     <Th>Name</Th>
                     <Th>SKU</Th>
                     <Th>Type</Th>
@@ -231,18 +231,18 @@ export function ProductsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {rows.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50">
+                    <tr key={p.id} className="hover:bg-slate-50 dark:bg-slate-900">
                       <Td>
-                        <span className="block font-medium text-slate-800">
+                        <span className="block font-medium text-slate-800 dark:text-slate-200">
                           {p.name}
                         </span>
                         {p.description && (
-                          <span className="block max-w-64 truncate text-xs text-slate-500">
+                          <span className="block max-w-64 truncate text-xs text-slate-500 dark:text-slate-400">
                             {p.description}
                           </span>
                         )}
                       </Td>
-                      <Td className="font-mono text-xs text-slate-500">
+                      <Td className="font-mono text-xs text-slate-500 dark:text-slate-400">
                         {p.sku ?? '—'}
                       </Td>
                       <Td>
@@ -346,7 +346,7 @@ export function ProductsPage() {
             />
           </Field>
           {formError && (
-            <p className="text-sm font-medium text-rose-600">{formError}</p>
+            <p className="text-sm font-medium text-rose-600 dark:text-rose-400">{formError}</p>
           )}
           <div className="flex justify-end gap-2">
             <Button

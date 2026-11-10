@@ -40,17 +40,17 @@ export function SalesSummaryPanel({
     {
       label: 'Cash',
       value: formatMoney(totals.cashAmount, currency),
-      tone: 'text-emerald-600',
+      tone: 'text-emerald-600 dark:text-emerald-400',
     },
     {
       label: 'Credit',
       value: formatMoney(totals.creditAmount, currency),
-      tone: 'text-amber-600',
+      tone: 'text-amber-600 dark:text-amber-400',
     },
     {
       label: 'Outstanding',
       value: formatMoney(totals.outstandingAmount, currency),
-      tone: 'text-rose-600',
+      tone: 'text-rose-600 dark:text-rose-400',
     },
     { label: 'Tax', value: formatMoney(totals.taxAmount, currency) },
     {
@@ -65,10 +65,10 @@ export function SalesSummaryPanel({
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {stats.map((s) => (
           <Card key={s.label} className="p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
               {s.label}
             </p>
-            <p className={`mt-1 text-lg font-semibold ${s.tone ?? 'text-slate-900'}`}>
+            <p className={`mt-1 text-lg font-semibold ${s.tone ?? 'text-slate-900 dark:text-slate-100'}`}>
               {s.value}
             </p>
           </Card>
@@ -77,8 +77,8 @@ export function SalesSummaryPanel({
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <div className="border-b border-slate-200 px-4 py-3">
-            <h3 className="text-sm font-semibold text-slate-900">
+          <div className="border-b border-slate-200 dark:border-slate-700 px-4 py-3">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               Daily breakdown
             </h3>
           </div>
@@ -87,7 +87,7 @@ export function SalesSummaryPanel({
           ) : (
             <TableWrap>
               <thead>
-                <tr className="bg-slate-50">
+                <tr className="bg-slate-50 dark:bg-slate-900">
                   <Th>Day</Th>
                   <Th className="text-right">Sales</Th>
                   <Th className="text-right">Total</Th>
@@ -97,7 +97,7 @@ export function SalesSummaryPanel({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {daily.map((d) => (
-                  <tr key={d.day} className="hover:bg-slate-50">
+                  <tr key={d.day} className="hover:bg-slate-50 dark:bg-slate-900">
                     <Td className="font-medium">{d.day}</Td>
                     <Td className="text-right">{d.saleCount}</Td>
                     <Td className="text-right font-medium">
@@ -117,8 +117,8 @@ export function SalesSummaryPanel({
         </Card>
 
         <Card>
-          <div className="border-b border-slate-200 px-4 py-3">
-            <h3 className="text-sm font-semibold text-slate-900">
+          <div className="border-b border-slate-200 dark:border-slate-700 px-4 py-3">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               Top products
             </h3>
           </div>
@@ -127,7 +127,7 @@ export function SalesSummaryPanel({
           ) : (
             <TableWrap>
               <thead>
-                <tr className="bg-slate-50">
+                <tr className="bg-slate-50 dark:bg-slate-900">
                   <Th>Product</Th>
                   <Th>Qty sold</Th>
                   <Th className="text-right">Revenue</Th>
@@ -135,7 +135,7 @@ export function SalesSummaryPanel({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {topProducts.map((p) => (
-                  <tr key={`${p.name}-${p.type}`} className="hover:bg-slate-50">
+                  <tr key={`${p.name}-${p.type}`} className="hover:bg-slate-50 dark:bg-slate-900">
                     <Td className="font-medium">{p.name}</Td>
                     <Td>{formatQuantity(p.quantitySold)}</Td>
                     <Td className="text-right font-medium">

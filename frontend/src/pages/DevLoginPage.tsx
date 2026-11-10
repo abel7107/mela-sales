@@ -36,32 +36,32 @@ export function DevLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 dark:bg-slate-800 px-4 py-10">
       <div className="w-full max-w-lg">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">
             M
           </div>
-          <h1 className="text-xl font-semibold text-slate-900">Mela Sales</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Mela Sales</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Sign in with a dev access token
           </p>
         </div>
 
         <Card className="p-6">
-          <ol className="mb-5 space-y-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+          <ol className="mb-5 space-y-2 rounded-lg bg-slate-50 dark:bg-slate-900 p-3 text-sm text-slate-600 dark:text-slate-300">
             <li>
-              <span className="font-medium text-slate-800">1.</span> Start the
+              <span className="font-medium text-slate-800 dark:text-slate-200">1.</span> Start the
               API: <code className="rounded bg-slate-200 px-1">cd backend
               && npm run dev</code>
             </li>
             <li>
-              <span className="font-medium text-slate-800">2.</span> Mint a
+              <span className="font-medium text-slate-800 dark:text-slate-200">2.</span> Mint a
               token: <code className="rounded bg-slate-200 px-1">npm run
               dev:auth -- --user your-name</code> (leave it running)
             </li>
             <li>
-              <span className="font-medium text-slate-800">3.</span> Copy the
+              <span className="font-medium text-slate-800 dark:text-slate-200">3.</span> Copy the
               printed <code className="rounded bg-slate-200 px-1">MELA_AUTH_*</code>{' '}
               lines into <code className="rounded bg-slate-200 px-1">backend/.env</code>{' '}
               and restart the API, then paste the token below.
@@ -88,11 +88,11 @@ export function DevLoginPage() {
           </form>
         </Card>
 
-        <p className="mt-4 text-center text-xs text-slate-400">
+        <p className="mt-4 text-center text-xs text-slate-400 dark:text-slate-500">
           Development only — for curl/API testing with{' '}
           <code className="rounded bg-slate-200 px-1">npm run dev:auth</code>.
           Prefer the normal{' '}
-          <Link to="/login" className="hover:text-slate-500">
+          <Link to="/login" className="hover:text-slate-500 dark:text-slate-400">
             sign-in page
           </Link>
           .

@@ -68,8 +68,8 @@ export function SalesListPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Sales</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Sales</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Record payments, print invoices, void sales.
           </p>
         </div>
@@ -81,7 +81,7 @@ export function SalesListPage() {
       <Card className="p-4">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
           <label className="block">
-            <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+            <span className="mb-1 block text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
               Invoice #
             </span>
             <Input
@@ -94,7 +94,7 @@ export function SalesListPage() {
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+            <span className="mb-1 block text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
               Status
             </span>
             <Select
@@ -111,7 +111,7 @@ export function SalesListPage() {
             </Select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+            <span className="mb-1 block text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
               Type
             </span>
             <Select
@@ -127,7 +127,7 @@ export function SalesListPage() {
             </Select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+            <span className="mb-1 block text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
               From
             </span>
             <Input
@@ -140,7 +140,7 @@ export function SalesListPage() {
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+            <span className="mb-1 block text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
               To
             </span>
             <Input
@@ -174,7 +174,7 @@ export function SalesListPage() {
             <>
               <TableWrap>
                 <thead>
-                  <tr className="bg-slate-50">
+                  <tr className="bg-slate-50 dark:bg-slate-900">
                     <Th>Invoice</Th>
                     <Th>Date</Th>
                     <Th>Customer</Th>
@@ -192,11 +192,11 @@ export function SalesListPage() {
                       className="cursor-pointer hover:bg-indigo-50/40"
                       onClick={() => navigate(`/sales/${row.id}`)}
                     >
-                      <Td className="font-medium text-indigo-700">
+                      <Td className="font-medium text-indigo-700 dark:text-indigo-300">
                         {row.invoiceNumber}
                       </Td>
                       <Td>{formatDateTime(row.createdAt)}</Td>
-                      <Td>{row.customerName ?? <span className="text-slate-400">—</span>}</Td>
+                      <Td>{row.customerName ?? <span className="text-slate-400 dark:text-slate-500">—</span>}</Td>
                       <Td>
                         <Badge tone={row.saleType === 'CASH' ? 'sky' : 'amber'}>
                           {row.saleType}
@@ -213,7 +213,7 @@ export function SalesListPage() {
                       </Td>
                       <Td
                         className={`text-right font-medium ${
-                          row.balanceDue !== '0.00' ? 'text-rose-600' : 'text-slate-400'
+                          row.balanceDue !== '0.00' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'
                         }`}
                       >
                         {formatMoney(row.balanceDue, currency)}

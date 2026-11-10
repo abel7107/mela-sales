@@ -2,16 +2,19 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import {
+  cancelInstallmentPlan,
+  createInstallmentPlan,
+  getInstallmentPlan,
   getInvoicePrintHtml,
   getSale,
   recordPayment,
   voidSale,
 } from '../api/endpoints'
 import { PAYMENT_METHODS } from '../api/types'
-import type { PaymentMethod, Sale } from '../api/types'
+import type { InstallmentPlan, PaymentMethod, Sale } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { useQuery } from '../lib/hooks'
-import { formatDateTime, formatMoney, normalizeMoney, toCents } from '../lib/money'
+import { formatDate, formatDateTime, formatMoney, normalizeMoney, toCents } from '../lib/money'
 import {
   Badge,
   Button,
@@ -60,6 +63,24 @@ export function SaleDetailPage() {
 
   const [printBusy, setPrintBusy] = useState(false)
   const [printError, setPrintError] = useState<string | null>(null)
+
+  const {
+    data: installmentPlan,
+    error: installmentError,
+    loading: installmentLoading,
+    reload: reloadInstallmentPlan,
+  } = useQuery<InstallmentPlan>(
+    (signal) => getInstallmentPlan(businessId, saleId, { signal }),
+    [businessId, saleId],
+  )
+
+  const [planOpen, setPlanOpen] = useState(false)
+  const [planRows, setPlanRows] = useState<Array<{ amount: string; dueDate: string }>>([
+    { amount: '', dueDate: '' },
+  ])
+  const [planErrorState, setPlanErrorState] = useState<ApiError | null>(null)
+  const [planBusy, setPlanBusy] = useState(false)
+  const [cancelBusy, setCancelBusy] = useState(false)
 
   if (!business) return null
   const currency = business.currency
@@ -136,6 +157,49 @@ export function SaleDetailPage() {
     }
   }
 
+  const addPlanRow = () => setPlanRows((rows) => [...rows, { amount: '', dueDate: '' }])
+  const removePlanRow = (index: number) =>
+    setPlanRows((rows) => rows.filter((_, i) => i !== index))
+  const updatePlanRow = (index: number, field: 'amount' | 'dueDate', value: string) =>
+    setPlanRows((rows) =>
+      rows.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+    )
+
+  const submitPlan = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPlanErrorState(null)
+    const installments = planRows.map((row) => ({
+      amountDue: normalizeMoney(row.amount) ?? '',
+      dueDate: row.dueDate.trim(),
+    }))
+    if (installments.some((i) => !i.amountDue || !i.dueDate)) {
+      setPlanErrorState(new ApiError(400, 'Fill in every installment amount and due date.'))
+      return
+    }
+    setPlanBusy(true)
+    try {
+      await createInstallmentPlan(business.id, sale.id, { installments })
+      setPlanOpen(false)
+      reloadInstallmentPlan()
+    } catch (err) {
+      setPlanErrorState(err instanceof ApiError ? err : new ApiError(0, 'Could not create plan.'))
+    } finally {
+      setPlanBusy(false)
+    }
+  }
+
+  const submitCancelPlan = async () => {
+    setCancelBusy(true)
+    try {
+      await cancelInstallmentPlan(business.id, sale.id)
+      reloadInstallmentPlan()
+    } catch {
+      // ignore; could show error
+    } finally {
+      setCancelBusy(false)
+    }
+  }
+
   const openPrint = async () => {
     setPrintBusy(true)
     setPrintError(null)
@@ -166,7 +230,7 @@ export function SaleDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-slate-900">
+              <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
                 {sale.invoice?.invoiceNumber ?? 'Sale'}
               </h1>
               <Badge tone={statusTone(sale.status)}>{sale.status}</Badge>
@@ -174,7 +238,7 @@ export function SaleDetailPage() {
                 {sale.saleType}
               </Badge>
             </div>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               {formatDateTime(sale.createdAt)}
               {sale.customerName ? ` · ${sale.customerName}` : ' · Walk-in'}
             </p>
@@ -194,13 +258,13 @@ export function SaleDetailPage() {
       </div>
 
       {printError && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-900/30 px-3 py-2 text-sm text-rose-800 dark:text-rose-300">
           {printError}
         </div>
       )}
 
       {sale.status === 'VOID' && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-900/30 px-4 py-3 text-sm text-rose-800 dark:text-rose-300">
           <p className="font-semibold">This sale was voided</p>
           <p className="mt-0.5">
             {sale.voidReason ?? 'No reason recorded.'}
@@ -212,12 +276,12 @@ export function SaleDetailPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <Card>
-            <div className="border-b border-slate-200 px-4 py-3">
-              <h2 className="text-sm font-semibold text-slate-900">Items</h2>
+            <div className="border-b border-slate-200 dark:border-slate-700 px-4 py-3">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Items</h2>
             </div>
             <TableWrap>
               <thead>
-                <tr className="bg-slate-50">
+                <tr className="bg-slate-50 dark:bg-slate-900">
                   <Th>Product</Th>
                   <Th>SKU</Th>
                   <Th className="text-right">Qty</Th>
@@ -228,9 +292,9 @@ export function SaleDetailPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {(sale.items ?? []).map((line) => (
-                  <tr key={line.id} className="hover:bg-slate-50">
+                  <tr key={line.id} className="hover:bg-slate-50 dark:bg-slate-900">
                     <Td className="font-medium">{line.name}</Td>
-                    <Td className="text-slate-500">{line.sku ?? '—'}</Td>
+                    <Td className="text-slate-500 dark:text-slate-400">{line.sku ?? '—'}</Td>
                     <Td className="text-right">{line.quantity}</Td>
                     <Td className="text-right">
                       {formatMoney(line.unitPrice, currency)}
@@ -248,19 +312,19 @@ export function SaleDetailPage() {
           </Card>
 
           <Card>
-            <div className="border-b border-slate-200 px-4 py-3">
-              <h2 className="text-sm font-semibold text-slate-900">
+            <div className="border-b border-slate-200 dark:border-slate-700 px-4 py-3">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 Payments ({(sale.payments ?? []).length})
               </h2>
             </div>
             {(sale.payments ?? []).length === 0 ? (
-              <p className="px-4 py-6 text-sm text-slate-500">
+              <p className="px-4 py-6 text-sm text-slate-500 dark:text-slate-400">
                 No payments recorded yet.
               </p>
             ) : (
               <TableWrap>
                 <thead>
-                  <tr className="bg-slate-50">
+                  <tr className="bg-slate-50 dark:bg-slate-900">
                     <Th>Date</Th>
                     <Th>Method</Th>
                     <Th>Reference</Th>
@@ -270,13 +334,13 @@ export function SaleDetailPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {(sale.payments ?? []).map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50">
+                    <tr key={p.id} className="hover:bg-slate-50 dark:bg-slate-900">
                       <Td>{formatDateTime(p.receivedAt)}</Td>
                       <Td>
                         <Badge tone="sky">{p.method.replace('_', ' ')}</Badge>
                       </Td>
-                      <Td className="text-slate-500">{p.reference ?? '—'}</Td>
-                      <Td className="max-w-40 truncate text-slate-500">
+                      <Td className="text-slate-500 dark:text-slate-400">{p.reference ?? '—'}</Td>
+                      <Td className="max-w-40 truncate text-slate-500 dark:text-slate-400">
                         {p.notes ?? '—'}
                       </Td>
                       <Td className="text-right font-medium">
@@ -289,10 +353,108 @@ export function SaleDetailPage() {
             )}
           </Card>
 
+          {sale.saleType === 'CREDIT' && (
+            <Card>
+              <div className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  Installment plan
+                </h2>
+                {installmentPlan?.status === 'ACTIVE' && isOwner && (
+                  <Button
+                    variant="danger"
+                    busy={cancelBusy}
+                    onClick={submitCancelPlan}
+                  >
+                    Cancel plan
+                  </Button>
+                )}
+              </div>
+              {installmentLoading && !installmentPlan && !(installmentError?.status === 404) && (
+                <p className="px-4 py-6 text-sm text-slate-500 dark:text-slate-400">Loading plan…</p>
+              )}
+              {installmentError && installmentError.status !== 404 && (
+                <p className="px-4 py-6 text-sm text-rose-600 dark:text-rose-400">
+                  {installmentError.message}
+                </p>
+              )}
+              {installmentError?.status === 404 && (
+                <div className="px-4 py-6 space-y-3">
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    No installment plan for this sale.
+                  </p>
+                  {sale.status === 'OPEN' && toCents(sale.balanceDue) > 0 && (
+                    <Button onClick={() => setPlanOpen(true)}>
+                      Create installment plan
+                    </Button>
+                  )}
+                </div>
+              )}
+              {installmentPlan && (
+                <div className="space-y-3 p-4">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <Badge tone={installmentPlan.status === 'ACTIVE' ? 'green' : 'slate'}>
+                      {installmentPlan.status}
+                    </Badge>
+                    <span className="text-slate-600 dark:text-slate-300">
+                      Total: {formatMoney(installmentPlan.totalAmount, currency)}
+                    </span>
+                    <span className="text-slate-500 dark:text-slate-400">
+                      Created {formatDateTime(installmentPlan.createdAt)}
+                    </span>
+                  </div>
+                  <TableWrap>
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-900">
+                        <Th>#</Th>
+                        <Th>Due date</Th>
+                        <Th className="text-right">Amount</Th>
+                        <Th className="text-right">Allocated</Th>
+                        <Th className="text-right">Remaining</Th>
+                        <Th>Status</Th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {installmentPlan.installments.map((inst) => (
+                        <tr key={inst.id} className="hover:bg-slate-50 dark:bg-slate-900">
+                          <Td>{inst.installmentNumber}</Td>
+                          <Td>{formatDate(inst.dueDate)}</Td>
+                          <Td className="text-right">
+                            {formatMoney(inst.amountDue, currency)}
+                          </Td>
+                          <Td className="text-right">
+                            {formatMoney(inst.amountAllocated, currency)}
+                          </Td>
+                          <Td className="text-right">
+                            {formatMoney(inst.remainingAmount, currency)}
+                          </Td>
+                          <Td>
+                            <Badge
+                              tone={
+                                inst.status === 'PAID'
+                                  ? 'green'
+                                  : inst.status === 'OVERDUE'
+                                    ? 'rose'
+                                    : inst.status === 'DUE_TODAY'
+                                      ? 'amber'
+                                      : 'sky'
+                              }
+                            >
+                              {inst.status.replace('_', ' ')}
+                            </Badge>
+                          </Td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </TableWrap>
+                </div>
+              )}
+            </Card>
+          )}
+
           {sale.notes && (
             <Card className="p-4">
-              <h2 className="text-sm font-semibold text-slate-900">Notes</h2>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Notes</h2>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300">
                 {sale.notes}
               </p>
             </Card>
@@ -310,7 +472,7 @@ export function SaleDetailPage() {
               label="Tax"
               value={`+ ${formatMoney(sale.taxAmount, currency)}`}
             />
-            <div className="border-t border-slate-200 pt-2">
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-2">
               <SummaryRow
                 label="Total"
                 value={formatMoney(sale.totalAmount, currency)}
@@ -325,14 +487,14 @@ export function SaleDetailPage() {
               label="Balance due"
               value={formatMoney(sale.balanceDue, currency)}
               strong
-              tone={sale.balanceDue !== '0.00' ? 'text-rose-600' : undefined}
+              tone={sale.balanceDue !== '0.00' ? 'text-rose-600 dark:text-rose-400' : undefined}
             />
           </div>
-          <div className="border-t border-slate-200 pt-3 text-xs text-slate-500">
+          <div className="border-t border-slate-200 dark:border-slate-700 pt-3 text-xs text-slate-500 dark:text-slate-400">
             <p>
               Invoice:{' '}
               {sale.invoice?.invoiceNumber ? (
-                <span className="font-medium text-slate-700">
+                <span className="font-medium text-slate-700 dark:text-slate-200">
                   {sale.invoice.invoiceNumber}
                 </span>
               ) : (
@@ -346,7 +508,7 @@ export function SaleDetailPage() {
             <p className="mt-2">
               <Link
                 to="/sales"
-                className="font-medium text-indigo-600 hover:text-indigo-500"
+                className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
               >
                 Back to sales list
               </Link>
@@ -362,9 +524,9 @@ export function SaleDetailPage() {
         title="Record payment"
       >
         <form onSubmit={submitPayment} className="space-y-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
             Remaining balance:{' '}
-            <span className="font-semibold text-slate-900">
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
               {formatMoney(sale.balanceDue, currency)}
             </span>
           </p>
@@ -403,7 +565,7 @@ export function SaleDetailPage() {
             />
           </Field>
           {payError && (
-            <p className="text-sm font-medium text-rose-600">
+            <p className="text-sm font-medium text-rose-600 dark:text-rose-400">
               {payError.message}
             </p>
           )}
@@ -429,7 +591,7 @@ export function SaleDetailPage() {
         title="Void sale"
       >
         <form onSubmit={submitVoid} className="space-y-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
             Voiding excludes this sale from reports and blocks further
             payments. This cannot be undone.
           </p>
@@ -443,7 +605,7 @@ export function SaleDetailPage() {
             />
           </Field>
           {voidError && (
-            <p className="text-sm font-medium text-rose-600">
+            <p className="text-sm font-medium text-rose-600 dark:text-rose-400">
               {voidError.message}
             </p>
           )}
@@ -457,6 +619,64 @@ export function SaleDetailPage() {
             </Button>
             <Button type="submit" variant="danger" busy={voidBusy}>
               Void sale
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Installment plan modal */}
+      <Modal open={planOpen} onClose={() => setPlanOpen(false)} title="Create installment plan">
+        <form onSubmit={submitPlan} className="space-y-4">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            Total must equal the remaining balance:{' '}
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
+              {formatMoney(sale.balanceDue, currency)}
+            </span>
+          </p>
+          <div className="space-y-2">
+            {planRows.map((row, index) => (
+              <div key={index} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <Field label="Amount">
+                  <Input
+                    value={row.amount}
+                    onChange={(e) => updatePlanRow(index, 'amount', e.target.value)}
+                    inputMode="decimal"
+                  />
+                </Field>
+                <Field label="Due date">
+                  <Input
+                    type="date"
+                    value={row.dueDate}
+                    onChange={(e) => updatePlanRow(index, 'dueDate', e.target.value)}
+                  />
+                </Field>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => removePlanRow(index)}
+                    disabled={planRows.length <= 1}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <Button type="button" variant="secondary" onClick={addPlanRow}>
+            Add installment
+          </Button>
+          {planErrorState && (
+            <p className="text-sm font-medium text-rose-600 dark:text-rose-400">
+              {planErrorState.message}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setPlanOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" busy={planBusy}>
+              Create plan
             </Button>
           </div>
         </form>
@@ -479,7 +699,7 @@ function SummaryRow({
   return (
     <div
       className={`flex items-center justify-between ${
-        strong ? 'font-semibold text-slate-900' : 'text-slate-600'
+        strong ? 'font-semibold text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'
       } ${tone ?? ''}`}
     >
       <span>{label}</span>

@@ -4,12 +4,15 @@ import { ApiError } from '../api/client'
 import { authForgotPassword, authResetPassword } from '../api/endpoints'
 import { useAuth } from '../auth/AuthContext'
 import { Button, Card, Field, Input } from '../components/ui'
-
+import { Logo } from '../components/Logo'
+import { useLanguage } from '../i18n/LanguageContext'
+import { LanguageSwitcher } from '../components/LanguageSwitcher'
 type Mode = 'signin' | 'register' | 'forgot' | 'reset'
 
 export function LoginPage() {
+  
   const { token, signIn, registerAccount } = useAuth()
-
+  const { t } = useLanguage()
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -21,7 +24,7 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  if (token) return <Navigate to="/" replace />
+  if (token) return <Navigate to="/dashboard" replace />
 
   const switchMode = (next: Mode) => {
     setMode(next)
@@ -37,7 +40,7 @@ export function LoginPage() {
     try {
       if (mode === 'forgot') {
         if (!email.trim()) {
-          setError('Email is required.')
+          setError(t('emailRequired'))
           setBusy(false)
           return
         }
@@ -45,41 +48,41 @@ export function LoginPage() {
         const token = res?.resetToken
         if (token) {
           setResetToken(token)
-          setInfo('Reset token generated (dev). Use it below to set a new password.')
+          setInfo(t('resetTokenGenerated'))
           setMode('reset')
         } else {
-          setInfo('If an account with that email exists, a reset link has been sent.')
+          setInfo(t('resetEmailSent'))
         }
       } else if (mode === 'reset') {
         if (!resetToken.trim()) {
-          setError('Reset token is required.')
+          setError(t('resetTokenRequired'))
           setBusy(false)
           return
         }
         if (!newPassword || newPassword.length < 8) {
-          setError('Password must be at least 8 characters.')
+          setError(t('passwordTooShort'))
           setBusy(false)
           return
         }
         await authResetPassword({ token: resetToken.trim(), password: newPassword })
-        setInfo('Password reset successfully. You can now sign in.')
+        setInfo(t('passwordResetSuccess'))
         setMode('signin')
         setPassword('')
         setNewPassword('')
         setResetToken('')
       } else {
         if (!email.trim()) {
-          setError('Email is required.')
+          setError(t('emailRequired'))
           setBusy(false)
           return
         }
         if (!password) {
-          setError('Password is required.')
+          setError(t('passwordRequired'))
           setBusy(false)
           return
         }
         if (mode === 'register' && password.length < 8) {
-          setError('Password must be at least 8 characters.')
+          setError(t('passwordTooShort'))
           setBusy(false)
           return
         }
@@ -97,12 +100,12 @@ export function LoginPage() {
         err instanceof ApiError
           ? err.message
           : mode === 'forgot'
-            ? 'Could not process your request.'
+            ? t('requestFailed')
             : mode === 'reset'
-              ? 'Could not reset your password.'
+              ? t('resetFailed')
               : mode === 'register'
-                ? 'Could not create your account.'
-                : 'Could not sign you in.',
+                ? t('registrationFailed')
+                : t('signInFailed'),
       )
     } finally {
       setBusy(false)
@@ -110,33 +113,33 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
+    <div className="relative flex min-h-screen items-center justify-center bg-slate-100 dark:bg-slate-800 px-4 py-10">
+     <div className="absolute right-4 top-4">
+        <LanguageSwitcher />
+      </div>
       <div className="w-full max-w-lg">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">
-            M
-          </div>
-          <h1 className="text-xl font-semibold text-slate-900">Mela Sales</h1>
-          <p className="mt-1 text-sm text-slate-500">
+              <div className="mb-3 flex justify-center">
+        <Logo />
+      </div>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {mode === 'signin'
-              ? 'Sign in to manage your business'
-              : mode === 'register'
-                ? 'Create your account to get started'
-                : mode === 'forgot'
-                  ? 'Reset your password'
-                  : 'Choose a new password'}
+  ? t('loginDescription')
+  : mode === 'register'
+    ? t('registerDescription')
+    : mode === 'forgot'
+      ? t('forgotDescription')
+      : t('resetDescription')}
           </p>
-        </div>
 
         <Card className="p-6">
           {info && (
-            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-2 text-sm text-emerald-700">
               {info}
             </div>
           )}
           <form onSubmit={submit} className="space-y-4">
             {mode === 'register' && (
-              <Field label="Your name (optional)">
+              <Field label={t('yourName')}>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -147,7 +150,7 @@ export function LoginPage() {
               </Field>
             )}
             {(mode === 'signin' || mode === 'register' || mode === 'forgot') && (
-              <Field label="Email" error={mode === 'forgot' ? error ?? undefined : undefined}>
+              <Field label={t('email')} error={mode === 'forgot' ? error ?? undefined : undefined}>
                 <Input
                   type="email"
                   value={email}
@@ -161,11 +164,11 @@ export function LoginPage() {
             )}
             {(mode === 'signin' || mode === 'register') && (
               <Field
-                label="Password"
+                label={t('password')}
                 error={error}
                 hint={
                   mode === 'register'
-                    ? 'At least 8 characters.'
+                    ? t('passwordHint')
                     : undefined
                 }
               >
@@ -182,7 +185,7 @@ export function LoginPage() {
                   />
                   <button
                     type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 hover:text-slate-700"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200"
                     onClick={() => setShowPassword((v) => !v)}
                     tabIndex={-1}
                   >
@@ -197,15 +200,15 @@ export function LoginPage() {
             )}
             {mode === 'reset' && (
               <>
-                <Field label="Reset token">
+                <Field label={t('resetToken')}>
                   <Input
                     value={resetToken}
                     onChange={(e) => setResetToken(e.target.value)}
-                    placeholder="paste reset token"
+                    placeholder={t('pasteResetToken')}
                     autoFocus
                   />
                 </Field>
-                <Field label="New password" error={error} hint="At least 8 characters.">
+                <Field label={t('newPassword')} error={error} hint={t('passwordHint')}>
                   <div className="relative">
                     <Input
                       type={showPassword ? 'text' : 'password'}
@@ -217,7 +220,7 @@ export function LoginPage() {
                     />
                     <button
                       type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 hover:text-slate-700"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200"
                       onClick={() => setShowPassword((v) => !v)}
                       tabIndex={-1}
                     >
@@ -234,12 +237,12 @@ export function LoginPage() {
 
             <Button type="submit" busy={busy} className="w-full">
               {mode === 'register'
-                ? 'Create account'
-                : mode === 'forgot'
-                  ? 'Send reset link'
-                  : mode === 'reset'
-                    ? 'Reset password'
-                    : 'Sign in'}
+                  ? t('createAccount')
+                  : mode === 'forgot'
+                    ? t('sendResetLink')
+                    : mode === 'reset'
+                      ? t('resetPassword')
+                      : t('login')}
             </Button>
           </form>
 
@@ -247,44 +250,44 @@ export function LoginPage() {
             <p className="mt-2 text-center text-sm">
               <button
                 type="button"
-                className="font-medium text-indigo-600 hover:text-indigo-500"
+                className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
                 onClick={() => switchMode('forgot')}
               >
-                Forgot password?
+                {t('forgotPassword')}
               </button>
             </p>
           )}
-          <p className="mt-4 text-center text-sm text-slate-600">
+          <p className="mt-4 text-center text-sm text-slate-600 dark:text-slate-300">
             {mode === 'signin' ? (
               <>
-                New here?{' '}
+               {t('newHere')}
                 <button
                   type="button"
-                  className="font-medium text-indigo-600 hover:text-indigo-500"
+                  className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
                   onClick={() => switchMode('register')}
                 >
-                  Create an account
+                  {t('createAnAccount')}
                 </button>
               </>
             ) : mode === 'forgot' || mode === 'reset' ? (
               <>
                 <button
                   type="button"
-                  className="font-medium text-indigo-600 hover:text-indigo-500"
+                  className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
                   onClick={() => switchMode('signin')}
                 >
-                  Back to sign in
+                  {t('alreadyHaveAccount')}
                 </button>
               </>
             ) : (
               <>
-                Already have an account?{' '}
+               {t('alreadyHaveAccount')}
                 <button
                   type="button"
-                  className="font-medium text-indigo-600 hover:text-indigo-500"
+                  className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
                   onClick={() => switchMode('signin')}
                 >
-                  Sign in
+                  {t('backToSignIn')}
                 </button>
               </>
             )}
@@ -292,9 +295,9 @@ export function LoginPage() {
         </Card>
 
         {import.meta.env.DEV && (
-          <p className="mt-4 text-center text-xs text-slate-400">
-            <Link to="/login/dev" className="hover:text-slate-500">
-              Developer token login
+          <p className="mt-4 text-center text-xs text-slate-400 dark:text-slate-500">
+            <Link to="/login/dev" className="hover:text-slate-500 dark:text-slate-400">
+              {t('developerTokenLogin')}
             </Link>
           </p>
         )}

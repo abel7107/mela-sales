@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
-import { createSale, listCustomers, listProducts } from '../api/endpoints'
+import {
+  createCustomer,
+  createSale,
+  listBranches,
+  listCustomers,
+  listProducts,
+} from '../api/endpoints'
 import { PAYMENT_METHODS } from '../api/types'
-import type { Customer, PaymentMethod, Product, Sale } from '../api/types'
+import type { Branch, Customer, PaymentMethod, Product, Sale } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { useDebounced } from '../lib/hooks'
 import {
@@ -16,7 +22,15 @@ import {
   subMoney,
   toCents,
 } from '../lib/money'
-import { Button, Card, Field, Input, Select, Textarea } from '../components/ui'
+import {
+  Button,
+  Card,
+  Field,
+  Input,
+  Modal,
+  Select,
+  Textarea,
+} from '../components/ui'
 
 interface CartItem {
   key: string
@@ -26,12 +40,29 @@ interface CartItem {
   unitPrice: string
   quantity: string
 }
+interface CustomerForm {
+  name: string
+  phone: string
+  email: string
+  address: string
+  notes: string
+}
 
+const emptyCustomerForm: CustomerForm = {
+  name: '',
+  phone: '',
+  email: '',
+  address: '',
+  notes: '',
+}
 export function SaleNewPage() {
   const { business } = useAuth()
   const navigate = useNavigate()
   const businessId = business?.id ?? ''
   const currency = business?.currency ?? 'ETB'
+
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [branchId, setBranchId] = useState('')
 
   const [productSearch, setProductSearch] = useState('')
   const debouncedProductSearch = useDebounced(productSearch, 300)
@@ -48,6 +79,12 @@ export function SaleNewPage() {
   const [customersLoading, setCustomersLoading] = useState(false)
   const [customer, setCustomer] = useState<Customer | null>(null)
 
+  const [customerModalOpen, setCustomerModalOpen] = useState(false)
+  const [customerForm, setCustomerForm] =
+  useState<CustomerForm>(emptyCustomerForm)
+  const [customerFormError, setCustomerFormError] =
+    useState<string | null>(null)
+  const [customerSaving, setCustomerSaving] = useState(false)
   const [discount, setDiscount] = useState('')
   const [tax, setTax] = useState('')
   const [notes, setNotes] = useState('')
@@ -58,6 +95,17 @@ export function SaleNewPage() {
   const [error, setError] = useState<ApiError | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const idempotencyKey = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!businessId) return
+    listBranches(businessId)
+      .then((items) => {
+        const active = items.filter((b) => b.isActive)
+        setBranches(active)
+        if (active.length > 0) setBranchId((prev) => prev || active[0].id)
+      })
+      .catch(() => setBranches([]))
+  }, [businessId])
 
   useEffect(() => {
     if (!businessId) return
@@ -131,6 +179,48 @@ export function SaleNewPage() {
   const removeLine = (key: string) => {
     setCart((prev) => prev.filter((i) => i.key !== key))
   }
+  const handleCreateCustomer = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setCustomerFormError(null)
+
+  if (!customerForm.name.trim()) {
+    setCustomerFormError('Customer name is required.')
+    return
+  }
+
+  if (
+    customerForm.email.trim() &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerForm.email.trim())
+  ) {
+    setCustomerFormError('Enter a valid email address.')
+    return
+  }
+
+  setCustomerSaving(true)
+
+  try {
+    const newCustomer = await createCustomer(businessId, {
+      name: customerForm.name.trim(),
+      phone: customerForm.phone.trim() || null,
+      email: customerForm.email.trim() || null,
+      address: customerForm.address.trim() || null,
+      notes: customerForm.notes.trim() || null,
+    })
+
+    setCustomer(newCustomer)
+    setCustomerSearch('')
+    setCustomerModalOpen(false)
+    setCustomerForm(emptyCustomerForm)
+  } catch (err) {
+    setCustomerFormError(
+      err instanceof ApiError
+        ? err.message
+        : 'Could not create the customer.',
+    )
+  } finally {
+    setCustomerSaving(false)
+  }
+}
 
   const subtotal = addMoney(
     ...cart.map((i) => lineTotal(i.unitPrice, i.quantity || '0')),
@@ -197,6 +287,7 @@ export function SaleNewPage() {
     const needsPaymentMethod = saleType === 'CASH' || hasInitialPayment
 
     const body = {
+      branchId,
       saleType,
       items: cart.map((i) => ({
         productServiceId: i.productServiceId,
@@ -238,8 +329,8 @@ export function SaleNewPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">New sale</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">New sale</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Prices are loaded from the server — only quantities are sent.
           </p>
         </div>
@@ -251,6 +342,17 @@ export function SaleNewPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <Card className="p-4">
+            <Field label="Branch">
+              <Select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </Card>
+          <Card className="p-4">
             <Field label="Add product or service">
               <Input
                 value={productSearch}
@@ -259,12 +361,12 @@ export function SaleNewPage() {
                 autoFocus
               />
             </Field>
-            <div className="mt-3 max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
+            <div className="mt-3 max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
               {productsLoading && (
-                <p className="px-3 py-3 text-sm text-slate-500">Searching…</p>
+                <p className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400">Searching…</p>
               )}
               {!productsLoading && productResults.length === 0 && (
-                <p className="px-3 py-3 text-sm text-slate-500">
+                <p className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400">
                   No active products match.
                 </p>
               )}
@@ -274,17 +376,17 @@ export function SaleNewPage() {
                     key={p.id}
                     type="button"
                     onClick={() => addToCart(p)}
-                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-indigo-50"
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-indigo-50 dark:bg-indigo-900/30"
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-slate-800">
+                      <span className="block truncate text-sm font-medium text-slate-800 dark:text-slate-200">
                         {p.name}
                       </span>
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
                         {p.sku ?? 'No SKU'} · {p.type}
                       </span>
                     </span>
-                    <span className="shrink-0 text-sm font-semibold text-slate-900">
+                    <span className="shrink-0 text-sm font-semibold text-slate-900 dark:text-slate-100">
                       {formatMoney(p.price, currency)}
                     </span>
                   </button>
@@ -293,13 +395,13 @@ export function SaleNewPage() {
           </Card>
 
           <Card>
-            <div className="border-b border-slate-200 px-4 py-3">
-              <h2 className="text-sm font-semibold text-slate-900">
+            <div className="border-b border-slate-200 dark:border-slate-700 px-4 py-3">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 Cart ({cart.length})
               </h2>
             </div>
             {cart.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-slate-500">
+              <p className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
                 Search above and tap a product to add it.
               </p>
             ) : (
@@ -313,10 +415,10 @@ export function SaleNewPage() {
                       className="flex flex-wrap items-center gap-3 px-4 py-3"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-slate-800">
+                        <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
                           {item.name}
                         </p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           {formatMoney(item.unitPrice, currency)} each
                           {item.sku ? ` · ${item.sku}` : ''}
                         </p>
@@ -325,7 +427,7 @@ export function SaleNewPage() {
                         <button
                           type="button"
                           aria-label="Decrease quantity"
-                          className="h-7 w-7 rounded border border-slate-300 text-slate-600 hover:bg-slate-50"
+                          className="h-7 w-7 rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:bg-slate-900"
                           onClick={() =>
                             setQty(
                               item.key,
@@ -346,7 +448,7 @@ export function SaleNewPage() {
                         <button
                           type="button"
                           aria-label="Increase quantity"
-                          className="h-7 w-7 rounded border border-slate-300 text-slate-600 hover:bg-slate-50"
+                          className="h-7 w-7 rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:bg-slate-900"
                           onClick={() =>
                             setQty(
                               item.key,
@@ -357,7 +459,7 @@ export function SaleNewPage() {
                           +
                         </button>
                       </div>
-                      <div className="w-24 text-right text-sm font-semibold text-slate-900">
+                      <div className="w-24 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">
                         {formatMoney(
                           lineTotal(item.unitPrice, qty ?? '0'),
                           currency,
@@ -367,7 +469,7 @@ export function SaleNewPage() {
                         type="button"
                         aria-label={`Remove ${item.name}`}
                         onClick={() => removeLine(item.key)}
-                        className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                        className="rounded p-1 text-slate-400 dark:text-slate-500 hover:bg-rose-50 dark:bg-rose-900/30 hover:text-rose-600 dark:text-rose-400"
                       >
                         <svg
                           className="h-4 w-4"
@@ -382,7 +484,7 @@ export function SaleNewPage() {
                         </svg>
                       </button>
                       {lineError && (
-                        <p className="w-full text-xs font-medium text-rose-600">
+                        <p className="w-full text-xs font-medium text-rose-600 dark:text-rose-400">
                           Quantity must be greater than zero (up to 3 decimals).
                         </p>
                       )}
@@ -392,7 +494,7 @@ export function SaleNewPage() {
               </ul>
             )}
             {cartError && (
-              <p className="border-t border-slate-100 px-4 py-2 text-sm font-medium text-rose-600">
+              <p className="border-t border-slate-100 px-4 py-2 text-sm font-medium text-rose-600 dark:text-rose-400">
                 {cartError}
               </p>
             )}
@@ -402,7 +504,7 @@ export function SaleNewPage() {
         <form onSubmit={submit} className="space-y-4">
           <Card className="space-y-4 p-4">
             <div>
-              <p className="mb-1.5 text-sm font-medium text-slate-700">
+              <p className="mb-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">
                 Sale type
               </p>
               <div className="grid grid-cols-2 gap-2">
@@ -411,8 +513,8 @@ export function SaleNewPage() {
                   onClick={() => setSaleType('CASH')}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                     saleType === 'CASH'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                      ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                      : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:bg-slate-900'
                   }`}
                 >
                   Cash
@@ -422,8 +524,8 @@ export function SaleNewPage() {
                   onClick={() => setSaleType('CREDIT')}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                     saleType === 'CREDIT'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                      ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                      : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:bg-slate-900'
                   }`}
                 >
                   Credit
@@ -434,13 +536,13 @@ export function SaleNewPage() {
             {saleType === 'CREDIT' && (
               <Field label="Customer (required for credit)">
                 {customer ? (
-                  <div className="flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+                  <div className="flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2">
                     <span className="truncate text-sm font-medium text-indigo-900">
                       {customer.name}
                     </span>
                     <button
                       type="button"
-                      className="ml-2 shrink-0 text-xs font-medium text-indigo-600 hover:text-indigo-500"
+                      className="ml-2 shrink-0 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
                       onClick={() => {
                         setCustomer(null)
                         setCustomerSearch('')
@@ -456,14 +558,26 @@ export function SaleNewPage() {
                       onChange={(e) => setCustomerSearch(e.target.value)}
                       placeholder="Search by name or phone…"
                     />
-                    <div className="mt-2 max-h-40 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="mt-2 w-full"
+                      onClick={() => {
+                        setCustomerForm(emptyCustomerForm)
+                        setCustomerFormError(null)
+                        setCustomerModalOpen(true)
+                      }}
+                    >
+                      + Add New Customer
+                    </Button>
+                    <div className="mt-2 max-h-40 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
                       {customersLoading && (
-                        <p className="px-3 py-2 text-xs text-slate-500">
+                        <p className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
                           Searching…
                         </p>
                       )}
                       {!customersLoading && customerResults.length === 0 && (
-                        <p className="px-3 py-2 text-xs text-slate-500">
+                        <p className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
                           No active customers match.
                         </p>
                       )}
@@ -475,12 +589,12 @@ export function SaleNewPage() {
                               key={c.id}
                               type="button"
                               onClick={() => setCustomer(c)}
-                              className="block w-full px-3 py-2 text-left hover:bg-indigo-50"
+                              className="block w-full px-3 py-2 text-left hover:bg-indigo-50 dark:bg-indigo-900/30"
                             >
-                              <span className="block text-sm font-medium text-slate-800">
+                              <span className="block text-sm font-medium text-slate-800 dark:text-slate-200">
                                 {c.name}
                               </span>
-                              <span className="text-xs text-slate-500">
+                              <span className="text-xs text-slate-500 dark:text-slate-400">
                                 {c.phone ?? c.email ?? 'No contact'}
                               </span>
                             </button>
@@ -576,7 +690,7 @@ export function SaleNewPage() {
               value={`− ${formatMoney(discountValue, currency)}`}
             />
             <Row label="Tax" value={`+ ${formatMoney(taxValue, currency)}`} />
-            <div className="border-t border-slate-200 pt-2">
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-2">
               <Row label="Total" value={formatMoney(total, currency)} strong />
             </div>
             {saleType === 'CREDIT' && (
@@ -595,7 +709,7 @@ export function SaleNewPage() {
           </Card>
 
           {error && (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+            <div className="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-900/30 px-3 py-2 text-sm text-rose-800 dark:text-rose-300">
               <p className="font-medium">{error.message}</p>
               {error.errors.length > 0 && (
                 <ul className="mt-1 list-inside list-disc">
@@ -615,11 +729,96 @@ export function SaleNewPage() {
           >
             {saleType === 'CASH' ? 'Complete cash sale' : 'Record credit sale'}
           </Button>
-          <p className="text-center text-xs text-slate-400">
+          <p className="text-center text-xs text-slate-400 dark:text-slate-500">
             Duplicate-submit protection is on (idempotency key).
-          </p>
+                    </p>
         </form>
       </div>
+
+      <Modal
+        open={customerModalOpen}
+        onClose={() => {
+          if (!customerSaving) setCustomerModalOpen(false)
+        }}
+        title="Add New Customer"
+      >
+        <form onSubmit={handleCreateCustomer} className="space-y-4">
+          <Field label="Name">
+            <Input
+              value={customerForm.name}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, name: e.target.value })
+              }
+              autoFocus
+              placeholder="Abebe Kebede"
+            />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Phone (optional)">
+              <Input
+                value={customerForm.phone}
+                onChange={(e) =>
+                  setCustomerForm({ ...customerForm, phone: e.target.value })
+                }
+                placeholder="+251911222333"
+              />
+            </Field>
+
+            <Field label="Email (optional)">
+              <Input
+                value={customerForm.email}
+                onChange={(e) =>
+                  setCustomerForm({ ...customerForm, email: e.target.value })
+                }
+                placeholder="abebe@example.com"
+              />
+            </Field>
+          </div>
+
+          <Field label="Address (optional)">
+            <Input
+              value={customerForm.address}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, address: e.target.value })
+              }
+              placeholder="Dire Dawa"
+            />
+          </Field>
+
+          <Field label="Notes (optional)">
+            <Textarea
+              value={customerForm.notes}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, notes: e.target.value })
+              }
+              rows={2}
+              placeholder="Additional customer information"
+            />
+          </Field>
+
+          {customerFormError && (
+            <p className="text-sm font-medium text-rose-600 dark:text-rose-400">
+              {customerFormError}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={customerSaving}
+              onClick={() => setCustomerModalOpen(false)}
+            >
+              Cancel
+            </Button>
+
+            <Button type="submit" busy={customerSaving}>
+              Create Customer
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }
@@ -636,11 +835,13 @@ function Row({
   return (
     <div
       className={`flex items-center justify-between text-sm ${
-        strong ? 'font-semibold text-slate-900' : 'text-slate-600'
+        strong ? 'font-semibold text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'
       }`}
     >
       <span>{label}</span>
       <span>{value}</span>
+     
     </div>
+    
   )
 }

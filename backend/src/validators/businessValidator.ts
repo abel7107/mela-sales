@@ -59,7 +59,58 @@ export const updateMemberSchema = z
     (data) => Object.keys(data).length > 0,
     "Provide at least one field to update."
   );
+// Branch management
 
+export const createBranchSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, "Branch name is required.")
+      .max(150, "Branch name cannot exceed 150 characters."),
+
+    address: z.string().trim().max(255).nullable().optional(),
+
+    phone: z.string().trim().min(3).max(30).nullable().optional(),
+  })
+  .strict();
+
+export const updateBranchSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, "Branch name is required.")
+      .max(150, "Branch name cannot exceed 150 characters.")
+      .optional(),
+
+    address: z.string().trim().max(255).nullable().optional(),
+
+    phone: z.string().trim().min(3).max(30).nullable().optional(),
+
+    isActive: z.boolean().optional(),
+  })
+  .strict()
+  .refine(
+    (data) => Object.keys(data).length > 0,
+    "Provide at least one field to update."
+  );
+
+export const assignBranchMemberSchema = z
+  .object({
+    membershipId: z
+      .string()
+      .trim()
+      .min(1, "Membership ID is required.")
+      .max(36),
+  })
+  .strict();
+
+export type CreateBranchInput = z.infer<typeof createBranchSchema>;
+export type UpdateBranchInput = z.infer<typeof updateBranchSchema>;
+export type AssignBranchMemberInput = z.infer<
+  typeof assignBranchMemberSchema
+>;
 export type CreateBusinessInput = z.infer<typeof createBusinessSchema>;
 export type UpdateBusinessInput = z.infer<typeof updateBusinessSchema>;
 export type AddMemberInput = z.infer<typeof addMemberSchema>;

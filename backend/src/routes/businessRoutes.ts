@@ -1,3 +1,4 @@
+
 import { randomUUID } from "node:crypto";
 import {
   Router,
@@ -5,7 +6,11 @@ import {
   type Response,
   type NextFunction,
 } from "express";
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import type {
+  PoolConnection,
+  ResultSetHeader,
+  RowDataPacket,
+} from "mysql2/promise";
 
 import pool from "../config/database.js";
 import { HttpError } from "../middleware/errorMiddleware.js";
@@ -16,6 +21,9 @@ import {
   createBusinessSchema,
   updateBusinessSchema,
   updateMemberSchema,
+  createBranchSchema,
+  updateBranchSchema,
+  assignBranchMemberSchema,
 } from "../validators/businessValidator.js";
 import { isDuplicateEntryError, requireParam } from "../utils/http.js";
 
@@ -32,6 +40,17 @@ interface MembershipRow extends RowDataPacket {
   role: "OWNER" | "CASHIER";
   is_active: number;
   created_at: Date;
+}
+
+interface BranchRow extends RowDataPacket {
+  id: string;
+  business_id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  is_active: number;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface BusinessRow extends RowDataPacket {
@@ -210,11 +229,18 @@ router.post(
 
       const business = await findBusiness(businessId);
 
+      if (!business) {
+        throw new HttpError(
+          500,
+          "Business was created but could not be retrieved."
+        );
+      }
+
       res.status(201).json({
         status: "success",
         message: "Business created successfully.",
         data: {
-          ...toBusinessApi(business!),
+          ...toBusinessApi(business),
           membership: { id: membershipId, role: "OWNER" },
         },
       });
@@ -279,9 +305,15 @@ router.patch(
         return;
       }
 
+      const existingBusiness = await findBusiness(businessId);
+
+      if (!existingBusiness) {
+        throw new HttpError(404, "Business not found.");
+      }
+
       const input = parsed.data;
 
-      const [result] = await pool.execute<ResultSetHeader>(
+      await pool.execute<ResultSetHeader>(
         `UPDATE businesses
          SET
            name     = CASE WHEN ? THEN ? ELSE name END,
@@ -302,16 +334,16 @@ router.patch(
         ]
       );
 
-      if (result.affectedRows === 0) {
+      const business = await findBusiness(businessId);
+
+      if (!business) {
         throw new HttpError(404, "Business not found.");
       }
-
-      const business = await findBusiness(businessId);
 
       res.status(200).json({
         status: "success",
         message: "Business updated successfully.",
-        data: toBusinessApi(business!),
+        data: toBusinessApi(business),
       });
     } catch (error) {
       next(error);
@@ -374,54 +406,56 @@ router.post(
         return;
       }
 
-       const input = parsed.data;
+      const input = parsed.data;
+      let authUserId = input.authUserId;
 
-       let authUserId = input.authUserId;
+      if (!authUserId && input.email) {
+        const [userRows] = await pool.execute<RowDataPacket[]>(
+          `SELECT id
+           FROM auth_users
+           WHERE email = ? AND is_active = TRUE
+           LIMIT 1`,
+          [input.email]
+        );
 
-       if (!authUserId && input.email) {
-         const [userRows] = await pool.execute<RowDataPacket[]>(
-           `SELECT id FROM auth_users WHERE email = ? AND is_active = TRUE LIMIT 1`,
-           [input.email]
-         );
+        if (userRows.length === 0) {
+          res.status(404).json({
+            status: "error",
+            message: "No active user found with that email.",
+          });
+          return;
+        }
 
-         if (userRows.length === 0) {
-           res.status(404).json({
-             status: "error",
-             message: "No active user found with that email.",
-           });
-           return;
-         }
+        authUserId = String(userRows[0].id);
+      }
 
-         authUserId = String(userRows[0].id);
-       }
+      if (!authUserId) {
+        res.status(400).json({
+          status: "error",
+          message: "Either authUserId or email is required.",
+        });
+        return;
+      }
 
-       if (!authUserId) {
-         res.status(400).json({
-           status: "error",
-           message: "Either authUserId or email is required.",
-         });
-         return;
-       }
+      const membershipId = randomUUID();
 
-       const membershipId = randomUUID();
+      await pool.execute<ResultSetHeader>(
+        `INSERT INTO business_memberships
+           (id, business_id, auth_user_id, role)
+         VALUES (?, ?, ?, ?)`,
+        [membershipId, businessId, authUserId, input.role]
+      );
 
-       await pool.execute<ResultSetHeader>(
-         `INSERT INTO business_memberships
-            (id, business_id, auth_user_id, role)
-          VALUES (?, ?, ?, ?)`,
-         [membershipId, businessId, authUserId, input.role]
-       );
-
-       res.status(201).json({
-         status: "success",
-         message: "Member added successfully.",
-         data: {
-           id: membershipId,
-           authUserId,
-           role: input.role,
-           isActive: true,
-         },
-       });
+      res.status(201).json({
+        status: "success",
+        message: "Member added successfully.",
+        data: {
+          id: membershipId,
+          authUserId,
+          role: input.role,
+          isActive: true,
+        },
+      });
     } catch (error) {
       if (isDuplicateEntryError(error)) {
         res.status(409).json({
@@ -442,6 +476,8 @@ router.patch(
   "/:businessId/members/:membershipId",
   requireRole("OWNER"),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    let connection: PoolConnection | undefined;
+
     try {
       const businessId = requireParam(req, "businessId");
       const membershipId = requireParam(req, "membershipId");
@@ -471,7 +507,59 @@ router.patch(
         return;
       }
 
-      const [result] = await pool.execute<ResultSetHeader>(
+      connection = await pool.getConnection();
+      await connection.beginTransaction();
+
+      const [existingRows] = await connection.execute<MembershipRow[]>(
+        `SELECT id, business_id, auth_user_id, role, is_active, created_at
+         FROM business_memberships
+         WHERE business_id = ? AND id = ?
+         LIMIT 1
+         FOR UPDATE`,
+        [businessId, membershipId]
+      );
+
+      const existingMember = existingRows[0];
+
+      if (!existingMember) {
+        throw new HttpError(404, "Membership not found in this business.");
+      }
+
+      const nextRole = Object.hasOwn(input, "role")
+        ? input.role!
+        : existingMember.role;
+
+      const nextIsActive = Object.hasOwn(input, "isActive")
+        ? input.isActive!
+        : existingMember.is_active === 1;
+
+      const isRemovingActiveOwner =
+        existingMember.role === "OWNER" &&
+        existingMember.is_active === 1 &&
+        (nextRole !== "OWNER" || !nextIsActive);
+
+      if (isRemovingActiveOwner) {
+        // Lock active OWNER rows to prevent concurrent requests from
+        // removing the last active OWNER.
+        const [activeOwners] = await connection.execute<RowDataPacket[]>(
+          `SELECT id
+           FROM business_memberships
+           WHERE business_id = ?
+             AND role = 'OWNER'
+             AND is_active = TRUE
+           FOR UPDATE`,
+          [businessId]
+        );
+
+        if (activeOwners.length <= 1) {
+          throw new HttpError(
+            409,
+            "The last active OWNER cannot be demoted or deactivated."
+          );
+        }
+      }
+
+      await connection.execute<ResultSetHeader>(
         `UPDATE business_memberships
          SET role = CASE WHEN ? THEN ? ELSE role END,
              is_active = CASE WHEN ? THEN ? ELSE is_active END
@@ -484,9 +572,7 @@ router.patch(
         ]
       );
 
-      if (result.affectedRows === 0) {
-        throw new HttpError(404, "Membership not found in this business.");
-      }
+      await connection.commit();
 
       const [rows] = await pool.execute<MembershipRow[]>(
         `SELECT id, business_id, auth_user_id, role, is_active, created_at
@@ -498,6 +584,10 @@ router.patch(
 
       const row = rows[0];
 
+      if (!row) {
+        throw new HttpError(404, "Membership not found in this business.");
+      }
+
       res.status(200).json({
         status: "success",
         message: "Member updated successfully.",
@@ -507,6 +597,458 @@ router.patch(
           role: row.role,
           isActive: row.is_active === 1,
           createdAt: row.created_at,
+        },
+      });
+    } catch (error) {
+      if (connection) {
+        try {
+          await connection.rollback();
+        } catch (rollbackError) {
+          console.error("Member update rollback failed:", rollbackError);
+        }
+      }
+
+      next(error);
+    } finally {
+      connection?.release();
+    }
+  }
+);
+
+// GET /api/v1/businesses/:businessId/branches
+// OWNER lists all branches; CASHIER lists only assigned branches.
+router.get(
+  "/:businessId/branches",
+  requireRole("OWNER", "CASHIER"),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const businessId = requireParam(req, "businessId");
+
+      const membership = res.locals.businessMembership as
+        | { id: string; businessId: string; role: "OWNER" | "CASHIER" }
+        | undefined;
+
+      const params: string[] = [businessId];
+      let where = "WHERE business_id = ?";
+
+      if (membership?.role === "CASHIER") {
+        where += ` AND id IN (
+          SELECT branch_id
+          FROM branch_memberships
+          WHERE business_id = ? AND membership_id = ?
+        )`;
+        params.push(businessId, membership.id);
+      }
+
+      const [rows] = await pool.execute<BranchRow[]>(
+        `SELECT id, business_id, name, address, phone,
+                is_active, created_at, updated_at
+         FROM branches
+         ${where}
+         ORDER BY created_at ASC`,
+        params
+      );
+
+      res.status(200).json({
+        status: "success",
+        data: rows.map((row) => ({
+          id: row.id,
+          businessId: row.business_id,
+          name: row.name,
+          address: row.address,
+          phone: row.phone,
+          isActive: row.is_active === 1,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        })),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/v1/businesses/:businessId/branches
+// OWNER can create a branch.
+router.post(
+  "/:businessId/branches",
+  requireRole("OWNER"),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const businessId = requireParam(req, "businessId");
+
+      const parsed = createBranchSchema.safeParse(req.body);
+
+      if (!parsed.success) {
+        res.status(400).json({
+          status: "error",
+          message: "Invalid branch data.",
+          errors: parsed.error.issues.map((issue) => ({
+            field: issue.path.join("."),
+            message: issue.message,
+          })),
+        });
+        return;
+      }
+
+      const input = parsed.data;
+      const branchId = randomUUID();
+
+      await pool.execute<ResultSetHeader>(
+        `INSERT INTO branches
+           (id, business_id, name, address, phone)
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          branchId,
+          businessId,
+          input.name,
+          input.address ?? null,
+          input.phone ?? null,
+        ]
+      );
+
+      const [rows] = await pool.execute<BranchRow[]>(
+        `SELECT id, business_id, name, address, phone,
+                is_active, created_at, updated_at
+         FROM branches
+         WHERE business_id = ? AND id = ?
+         LIMIT 1`,
+        [businessId, branchId]
+      );
+
+      const branch = rows[0];
+
+      if (!branch) {
+        throw new HttpError(500, "Branch created but could not be retrieved.");
+      }
+
+      res.status(201).json({
+        status: "success",
+        message: "Branch created successfully.",
+        data: {
+          id: branch.id,
+          businessId: branch.business_id,
+          name: branch.name,
+          address: branch.address,
+          phone: branch.phone,
+          isActive: branch.is_active === 1,
+          createdAt: branch.created_at,
+          updatedAt: branch.updated_at,
+        },
+      });
+    } catch (error) {
+      if (isDuplicateEntryError(error)) {
+        res.status(409).json({
+          status: "error",
+          message: "A branch with this name already exists.",
+        });
+        return;
+      }
+
+      next(error);
+    }
+  }
+);
+
+// PATCH /api/v1/businesses/:businessId/branches/:branchId
+// OWNER can update or deactivate a branch.
+router.patch(
+  "/:businessId/branches/:branchId",
+  requireRole("OWNER"),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const businessId = requireParam(req, "businessId");
+      const branchId = requireParam(req, "branchId");
+
+      const parsed = updateBranchSchema.safeParse(req.body);
+
+      if (!parsed.success) {
+        res.status(400).json({
+          status: "error",
+          message: "Invalid branch update.",
+          errors: parsed.error.issues.map((issue) => ({
+            field: issue.path.join("."),
+            message: issue.message,
+          })),
+        });
+        return;
+      }
+
+      const input = parsed.data;
+
+      const [existingRows] = await pool.execute<BranchRow[]>(
+        `SELECT id, business_id, name, address, phone,
+                is_active, created_at, updated_at
+         FROM branches
+         WHERE business_id = ? AND id = ?
+         LIMIT 1`,
+        [businessId, branchId]
+      );
+
+      if (existingRows.length === 0) {
+        throw new HttpError(404, "Branch not found.");
+      }
+
+      await pool.execute<ResultSetHeader>(
+        `UPDATE branches
+         SET name = CASE WHEN ? THEN ? ELSE name END,
+             address = CASE WHEN ? THEN ? ELSE address END,
+             phone = CASE WHEN ? THEN ? ELSE phone END,
+             is_active = CASE WHEN ? THEN ? ELSE is_active END
+         WHERE business_id = ? AND id = ?`,
+        [
+          Object.hasOwn(input, "name"), input.name ?? null,
+          Object.hasOwn(input, "address"), input.address ?? null,
+          Object.hasOwn(input, "phone"), input.phone ?? null,
+          Object.hasOwn(input, "isActive"), input.isActive ?? null,
+          businessId,
+          branchId,
+        ]
+      );
+
+      const [rows] = await pool.execute<BranchRow[]>(
+        `SELECT id, business_id, name, address, phone,
+                is_active, created_at, updated_at
+         FROM branches
+         WHERE business_id = ? AND id = ?
+         LIMIT 1`,
+        [businessId, branchId]
+      );
+
+      const branch = rows[0];
+
+      if (!branch) {
+        throw new HttpError(404, "Branch not found.");
+      }
+
+      res.status(200).json({
+        status: "success",
+        message: "Branch updated successfully.",
+        data: {
+          id: branch.id,
+          businessId: branch.business_id,
+          name: branch.name,
+          address: branch.address,
+          phone: branch.phone,
+          isActive: branch.is_active === 1,
+          createdAt: branch.created_at,
+          updatedAt: branch.updated_at,
+        },
+      });
+    } catch (error) {
+      if (isDuplicateEntryError(error)) {
+        res.status(409).json({
+          status: "error",
+          message: "A branch with this name already exists.",
+        });
+        return;
+      }
+
+      next(error);
+    }
+  }
+);
+
+// GET /api/v1/businesses/:businessId/branches/:branchId/members
+// OWNER can list employees assigned to a branch.
+router.get(
+  "/:businessId/branches/:branchId/members",
+  requireRole("OWNER"),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const businessId = requireParam(req, "businessId");
+      const branchId = requireParam(req, "branchId");
+
+      const [branchRows] = await pool.execute<BranchRow[]>(
+        `SELECT id, business_id, name, address, phone,
+                is_active, created_at, updated_at
+         FROM branches
+         WHERE business_id = ? AND id = ?
+         LIMIT 1`,
+        [businessId, branchId]
+      );
+
+      if (branchRows.length === 0) {
+        throw new HttpError(404, "Branch not found.");
+      }
+
+      const [members] = await pool.execute<RowDataPacket[]>(
+        `SELECT
+           bm.membership_id AS membershipId,
+           m.auth_user_id AS authUserId,
+           m.role,
+           m.is_active AS isActive,
+           bm.created_at AS assignedAt
+         FROM branch_memberships bm
+         INNER JOIN business_memberships m
+           ON m.id = bm.membership_id
+          AND m.business_id = bm.business_id
+         WHERE bm.business_id = ?
+           AND bm.branch_id = ?
+         ORDER BY bm.created_at DESC`,
+        [businessId, branchId]
+      );
+
+      res.status(200).json({
+        status: "success",
+        message: "Branch members retrieved successfully.",
+        data: members.map((member) => ({
+          membershipId: member.membershipId,
+          authUserId: member.authUserId,
+          role: member.role,
+          isActive: member.isActive === 1,
+          assignedAt: member.assignedAt,
+        })),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/v1/businesses/:businessId/branches/:branchId/members
+// OWNER assigns an existing CASHIER to a branch.
+router.post(
+  "/:businessId/branches/:branchId/members",
+  requireRole("OWNER"),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const businessId = requireParam(req, "businessId");
+      const branchId = requireParam(req, "branchId");
+
+      const parsed = assignBranchMemberSchema.safeParse(req.body);
+
+      if (!parsed.success) {
+        res.status(400).json({
+          status: "error",
+          message: "Invalid branch member assignment.",
+          errors: parsed.error.issues.map((issue) => ({
+            field: issue.path.join("."),
+            message: issue.message,
+          })),
+        });
+        return;
+      }
+
+      const { membershipId } = parsed.data;
+
+      // Confirm the branch belongs to this business and is active.
+      const [branchRows] = await pool.execute<BranchRow[]>(
+        `SELECT id, business_id, name, address, phone,
+                is_active, created_at, updated_at
+         FROM branches
+         WHERE business_id = ? AND id = ?
+         LIMIT 1`,
+        [businessId, branchId]
+      );
+
+      if (branchRows.length === 0) {
+        throw new HttpError(404, "Branch not found.");
+      }
+
+      if (branchRows[0].is_active !== 1) {
+        throw new HttpError(
+          400,
+          "Cannot assign employees to an inactive branch."
+        );
+      }
+
+      // Confirm the employee belongs to this business.
+      const [memberRows] = await pool.execute<MembershipRow[]>(
+        `SELECT id, business_id, auth_user_id, role,
+                is_active, created_at
+         FROM business_memberships
+         WHERE business_id = ? AND id = ?
+         LIMIT 1`,
+        [businessId, membershipId]
+      );
+
+      if (memberRows.length === 0) {
+        throw new HttpError(404, "Business member not found.");
+      }
+
+      const member = memberRows[0];
+
+      if (member.role !== "CASHIER") {
+        throw new HttpError(
+          400,
+          "Only CASHIER employees can be assigned to branches."
+        );
+      }
+
+      if (member.is_active !== 1) {
+        throw new HttpError(400, "Cannot assign an inactive employee.");
+      }
+
+      // Create the branch assignment.
+      const assignmentId = randomUUID();
+
+      await pool.execute<ResultSetHeader>(
+        `INSERT INTO branch_memberships
+           (id, business_id, branch_id, membership_id)
+         VALUES (?, ?, ?, ?)`,
+        [assignmentId, businessId, branchId, membershipId]
+      );
+
+      res.status(201).json({
+        status: "success",
+        message: "Employee assigned to branch successfully.",
+        data: {
+          id: assignmentId,
+          businessId,
+          branchId,
+          membershipId,
+          authUserId: member.auth_user_id,
+          role: member.role,
+        },
+      });
+    } catch (error) {
+      if (isDuplicateEntryError(error)) {
+        res.status(409).json({
+          status: "error",
+          message: "This employee is already assigned to this branch.",
+        });
+        return;
+      }
+
+      next(error);
+    }
+  }
+);
+
+// DELETE /api/v1/businesses/:businessId/branches/:branchId/members/:membershipId
+// OWNER removes an employee's branch assignment.
+router.delete(
+  "/:businessId/branches/:branchId/members/:membershipId",
+  requireRole("OWNER"),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const businessId = requireParam(req, "businessId");
+      const branchId = requireParam(req, "branchId");
+      const membershipId = requireParam(req, "membershipId");
+
+      const [result] = await pool.execute<ResultSetHeader>(
+        `DELETE FROM branch_memberships
+         WHERE business_id = ?
+           AND branch_id = ?
+           AND membership_id = ?`,
+        [businessId, branchId, membershipId]
+      );
+
+      if (result.affectedRows === 0) {
+        throw new HttpError(
+          404,
+          "Employee assignment not found for this branch."
+        );
+      }
+
+      res.status(200).json({
+        status: "success",
+        message: "Employee removed from branch successfully.",
+        data: {
+          businessId,
+          branchId,
+          membershipId,
         },
       });
     } catch (error) {

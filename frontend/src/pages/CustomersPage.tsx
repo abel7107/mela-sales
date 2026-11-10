@@ -152,8 +152,8 @@ export function CustomersPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Customers</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Customers</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             People and businesses you sell to on credit.
           </p>
         </div>
@@ -162,7 +162,7 @@ export function CustomersPage() {
 
       <Card className="flex flex-wrap items-end gap-3 p-4">
         <label className="block min-w-52 flex-1">
-          <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+          <span className="mb-1 block text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             Search
           </span>
           <Input
@@ -174,7 +174,7 @@ export function CustomersPage() {
             placeholder="Name, phone or email…"
           />
         </label>
-        <label className="flex items-center gap-2 pb-2 text-sm text-slate-600">
+        <label className="flex items-center gap-2 pb-2 text-sm text-slate-600 dark:text-slate-300">
           <input
             type="checkbox"
             checked={includeInactive}
@@ -182,7 +182,7 @@ export function CustomersPage() {
               setIncludeInactive(e.target.checked)
               setPage(1)
             }}
-            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500"
           />
           Include inactive
         </label>
@@ -204,7 +204,7 @@ export function CustomersPage() {
             <>
               <TableWrap>
                 <thead>
-                  <tr className="bg-slate-50">
+                  <tr className="bg-slate-50 dark:bg-slate-900">
                     <Th>Name</Th>
                     <Th>Phone</Th>
                     <Th>Email</Th>
@@ -214,19 +214,19 @@ export function CustomersPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {rows.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50">
+                    <tr key={c.id} className="hover:bg-slate-50 dark:bg-slate-900">
                       <Td>
-                        <span className="block font-medium text-slate-800">
+                        <span className="block font-medium text-slate-800 dark:text-slate-200">
                           {c.name}
                         </span>
                         {c.notes && (
-                          <span className="block max-w-56 truncate text-xs text-slate-500">
+                          <span className="block max-w-56 truncate text-xs text-slate-500 dark:text-slate-400">
                             {c.notes}
                           </span>
                         )}
                       </Td>
-                      <Td className="text-slate-600">{c.phone ?? '—'}</Td>
-                      <Td className="text-slate-600">{c.email ?? '—'}</Td>
+                      <Td className="text-slate-600 dark:text-slate-300">{c.phone ?? '—'}</Td>
+                      <Td className="text-slate-600 dark:text-slate-300">{c.email ?? '—'}</Td>
                       <Td>
                         <Badge tone={c.isActive ? 'green' : 'slate'}>
                           {c.isActive ? 'Active' : 'Inactive'}
@@ -317,7 +317,7 @@ export function CustomersPage() {
             />
           </Field>
           {formError && (
-            <p className="text-sm font-medium text-rose-600">{formError}</p>
+            <p className="text-sm font-medium text-rose-600 dark:text-rose-400">{formError}</p>
           )}
           <div className="flex justify-end gap-2">
             <Button

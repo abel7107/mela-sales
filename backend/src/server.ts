@@ -12,6 +12,7 @@ import customerRoutes from "./routes/customerRoutes.js";
 import salesRoutes from "./routes/salesRoutes.js";
 import saleDetailRoutes from "./routes/saleDetailRoutes.js";
 import salePaymentRoutes from "./routes/salePaymentRoutes.js";
+import installmentRoutes from "./routes/installmentRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import businessRoutes from "./routes/businessRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -115,6 +116,10 @@ app.use(
 app.use(
   "/api/v1/businesses/:businessId/sales/:saleId/payments",
   salePaymentRoutes
+);
+app.use(
+  "/api/v1/businesses/:businessId/sales/:saleId/installments",
+  installmentRoutes
 );
 app.use(
   "/api/v1/businesses/:businessId/sales/:saleId",

@@ -16,11 +16,11 @@ const buttonVariants: Record<ButtonVariant, string> = {
   primary:
     'bg-indigo-600 text-white hover:bg-indigo-500 focus-visible:ring-indigo-500 disabled:bg-indigo-300',
   secondary:
-    'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus-visible:ring-slate-400 disabled:opacity-50',
+    'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:bg-slate-900 focus-visible:ring-slate-400 disabled:opacity-50',
   danger:
     'bg-rose-600 text-white hover:bg-rose-500 focus-visible:ring-rose-500 disabled:bg-rose-300',
   ghost:
-    'text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-400 disabled:opacity-50',
+    'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:bg-slate-800 focus-visible:ring-slate-400 disabled:opacity-50',
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -67,15 +67,15 @@ export function Field({
 }) {
   return (
     <label className={`block ${className}`}>
-      <span className="mb-1 block text-sm font-medium text-slate-700">
+      <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
         {label}
       </span>
       {children}
       {hint && !error && (
-        <span className="mt-1 block text-xs text-slate-500">{hint}</span>
+        <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{hint}</span>
       )}
       {error && (
-        <span className="mt-1 block text-xs font-medium text-rose-600">
+        <span className="mt-1 block text-xs font-medium text-rose-600 dark:text-rose-400">
           {error}
         </span>
       )}
@@ -84,7 +84,7 @@ export function Field({
 }
 
 const fieldClasses =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500'
+  'w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-50 dark:bg-slate-900 disabled:text-slate-500 dark:text-slate-400'
 
 export function Input({
   className = '',
@@ -123,7 +123,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}
+      className={`rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm ${className}`}
     >
       {children}
     </div>
@@ -135,11 +135,11 @@ export function Card({
 type BadgeTone = 'green' | 'amber' | 'slate' | 'rose' | 'indigo' | 'sky'
 
 const badgeTones: Record<BadgeTone, string> = {
-  green: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  amber: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-  slate: 'bg-slate-100 text-slate-600 ring-slate-500/20',
-  rose: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-  indigo: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
+  green: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 ring-emerald-600/20',
+  amber: 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 ring-amber-600/20',
+  slate: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 ring-slate-500/20',
+  rose: 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 ring-rose-600/20',
+  indigo: 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 ring-indigo-600/20',
   sky: 'bg-sky-50 text-sky-700 ring-sky-600/20',
 }
 
@@ -190,7 +190,7 @@ export function Spinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
 
 export function LoadingBlock({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div className="flex items-center justify-center gap-3 py-16 text-slate-500">
+    <div className="flex items-center justify-center gap-3 py-16 text-slate-500 dark:text-slate-400">
       <Spinner />
       <span className="text-sm">{label}</span>
     </div>
@@ -205,8 +205,8 @@ export function ErrorBanner({
   onRetry?: () => void
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
-      <div className="text-sm text-rose-800">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-900/30 px-4 py-3">
+      <div className="text-sm text-rose-800 dark:text-rose-300">
         <p className="font-medium">{error.message}</p>
         {error.errors.length > 0 && (
           <ul className="mt-1 list-inside list-disc text-rose-700">
@@ -241,8 +241,8 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-14 text-center">
-      <p className="text-sm font-semibold text-slate-700">{title}</p>
-      {hint && <p className="max-w-sm text-sm text-slate-500">{hint}</p>}
+      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</p>
+      {hint && <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400">{hint}</p>}
       {action && <div className="mt-2">{action}</div>}
     </div>
   )
@@ -261,13 +261,13 @@ export function PaginationBar({
 }) {
   if (pagination.totalPages <= 1) {
     return (
-      <div className="border-t border-slate-200 px-4 py-2 text-xs text-slate-500">
+      <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-2 text-xs text-slate-500 dark:text-slate-400">
         {pagination.total} result{pagination.total === 1 ? '' : 's'}
       </div>
     )
   }
   return (
-    <div className="flex items-center justify-between border-t border-slate-200 px-4 py-2 text-sm text-slate-600">
+    <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-700 px-4 py-2 text-sm text-slate-600 dark:text-slate-300">
       <span>
         Page {page} of {pagination.totalPages} · {pagination.total} total
       </span>
@@ -318,15 +318,15 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`w-full ${wide ? 'max-w-2xl' : 'max-w-md'} rounded-xl bg-white shadow-xl`}
+        className={`w-full ${wide ? 'max-w-2xl' : 'max-w-md'} rounded-xl bg-white dark:bg-slate-800 shadow-xl`}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
-          <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-5 py-3">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            className="rounded p-1 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:bg-slate-800 hover:text-slate-600 dark:text-slate-300"
           >
             <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
@@ -360,7 +360,7 @@ export function Th({
 }) {
   return (
     <th
-      className={`px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 ${className}`}
+      className={`px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 ${className}`}
     >
       {children}
     </th>
@@ -375,7 +375,7 @@ export function Td({
   className?: string
 }) {
   return (
-    <td className={`px-4 py-2.5 align-middle text-slate-700 ${className}`}>
+    <td className={`px-4 py-2.5 align-middle text-slate-700 dark:text-slate-200 ${className}`}>
       {children}
     </td>
   )

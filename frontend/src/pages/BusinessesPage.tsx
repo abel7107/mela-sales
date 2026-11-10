@@ -120,14 +120,14 @@ export function BusinessesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-10">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-800 px-4 py-10">
       <div className="mx-auto max-w-2xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-slate-900">
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
               Your businesses
             </h1>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Pick a business to work in, or create a new one.
             </p>
           </div>
@@ -137,13 +137,13 @@ export function BusinessesPage() {
         </div>
 
         {loading && (
-          <div className="flex justify-center py-16 text-slate-500">
+          <div className="flex justify-center py-16 text-slate-500 dark:text-slate-400">
             <Spinner size="lg" />
           </div>
         )}
 
         {!loading && error && (
-          <Card className="mb-4 border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          <Card className="mb-4 border-rose-200 bg-rose-50 dark:bg-rose-900/30 p-4 text-sm text-rose-800 dark:text-rose-300">
             {error.message}
           </Card>
         )}
@@ -159,12 +159,12 @@ export function BusinessesPage() {
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="truncate font-medium text-slate-900">
+                    <p className="truncate font-medium text-slate-900 dark:text-slate-100">
                       {b.name}
                     </p>
                     <Badge tone="indigo">{b.membership?.role}</Badge>
                   </div>
-                  <p className="mt-0.5 text-xs text-slate-500">
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                     {b.currency}
                     {b.phone ? ` · ${b.phone}` : ''}
                     {b.address ? ` · ${b.address}` : ''}
@@ -197,10 +197,10 @@ export function BusinessesPage() {
 
             {businesses.length === 0 && (
               <Card className="p-8 text-center">
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
                   No businesses yet
                 </p>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   Create your first business to start recording sales.
                 </p>
               </Card>
@@ -243,7 +243,7 @@ export function BusinessesPage() {
             />
           </Field>
           {formError && (
-            <p className="text-sm font-medium text-rose-600">{formError}</p>
+            <p className="text-sm font-medium text-rose-600 dark:text-rose-400">{formError}</p>
           )}
           <div className="flex justify-end gap-2">
             <Button
@@ -288,7 +288,7 @@ export function BusinessesPage() {
             />
           </Field>
           {formError && (
-            <p className="text-sm font-medium text-rose-600">{formError}</p>
+            <p className="text-sm font-medium text-rose-600 dark:text-rose-400">{formError}</p>
           )}
           <div className="flex justify-end gap-2">
             <Button

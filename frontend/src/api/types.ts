@@ -211,3 +211,49 @@ export interface CreateSaleBody {
   paymentReference?: string | null
   paymentNotes?: string | null
 }
+
+export interface InstallmentScheduleItem {
+  id: string
+  installmentNumber: number
+  amountDue: string
+  amountAllocated: string
+  remainingAmount: string
+  dueDate: string
+  status: 'PAID' | 'OVERDUE' | 'DUE_TODAY' | 'UPCOMING'
+}
+
+export interface InstallmentPlan {
+  id: string
+  saleId: string
+  totalAmount: string
+  status: 'ACTIVE' | 'CANCELLED'
+  createdAt: string
+  cancelledAt: string | null
+  installments: InstallmentScheduleItem[]
+}
+
+export interface InstallmentPlanSummary {
+  planId: string
+  saleId: string
+  totalAmount: string
+  status: 'ACTIVE' | 'CANCELLED'
+  createdAt: string
+  cancelledAt: string | null
+  saleStatus: 'OPEN' | 'PAID' | 'VOID'
+  customerName: string | null
+  installmentCount: number
+  allocatedTotal: string
+  nextDueDate: string | null
+}
+
+
+export interface Branch {
+  id: string
+  businessId: string
+  name: string
+  address: string | null
+  phone: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
