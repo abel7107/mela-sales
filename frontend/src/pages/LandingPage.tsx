@@ -2,9 +2,11 @@ import { Link } from 'react-router-dom'
 import { Logo } from '../components/Logo'
 import { LanguageSwitcher } from '../components/LanguageSwitcher'
 import { useLanguage } from '../i18n/LanguageContext'
+import { useTheme } from '../theme/ThemeContext'
 
 export function LandingPage() {
   const { t, language } = useLanguage()
+  const { theme, toggle } = useTheme()
 
   const content = {
     en: {
@@ -37,6 +39,13 @@ export function LandingPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           <Logo />
           <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={toggle}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              {theme === 'dark' ? 'Light' : 'Dark'}
+            </button>
             <LanguageSwitcher />
             <Link
               to="/login"
