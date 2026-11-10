@@ -48,7 +48,7 @@ export function Logo({ compact = false, light = false }: LogoProps) {
       </svg>
 
       {!compact && (
-        <span className={`text-2xl font-black tracking-[0.12em] ${
+        <span className={`text-sm font-black tracking-[0.12em] ${
           light ? 'text-white' : 'text-slate-900 dark:text-slate-100'
         }`}>
           MELA SALES
