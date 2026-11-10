@@ -131,7 +131,7 @@ export function Layout() {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-700 bg-white/90 backdrop-blur">
+        <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 backdrop-blur">
           <div className="flex items-center justify-between gap-3 px-4 py-3 lg:px-6">
             <div className="flex items-center gap-3">
               <span className="hidden text-sm font-semibold text-slate-900 dark:text-slate-100 sm:block">
