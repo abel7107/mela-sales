@@ -38,13 +38,13 @@ export function ReportsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Reports</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Reports</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           Sales, outstanding balances and payment history.
         </p>
       </div>
 
-      <div className="flex gap-1 border-b border-slate-200">
+      <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -52,8 +52,8 @@ export function ReportsPage() {
             onClick={() => setTab(t.id)}
             className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition ${
               tab === t.id
-                ? 'border-indigo-600 text-indigo-700'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-indigo-600 text-indigo-700 dark:text-indigo-300'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200'
             }`}
           >
             {t.label}
@@ -78,7 +78,7 @@ function SalesSummaryTab() {
   return (
     <Card className="p-4">
       <div className="mb-4 flex flex-wrap items-end gap-3">
-        <label className="flex items-center gap-1.5 text-sm text-slate-600">
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
           From
           <Input
             type="date"
@@ -87,7 +87,7 @@ function SalesSummaryTab() {
             className="!w-auto"
           />
         </label>
-        <label className="flex items-center gap-1.5 text-sm text-slate-600">
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
           To
           <Input
             type="date"
@@ -136,11 +136,11 @@ function BalancesTab() {
 
   return (
     <Card>
-      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-semibold text-slate-900">
+      <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-4 py-3">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
           Outstanding by customer
         </h2>
-        <label className="flex items-center gap-2 text-sm text-slate-600">
+        <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
           <input
             type="checkbox"
             checked={onlyWithBalance}
@@ -148,7 +148,7 @@ function BalancesTab() {
               setOnlyWithBalance(e.target.checked)
               setPage(1)
             }}
-            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500"
           />
           Only with balance
         </label>
@@ -166,7 +166,7 @@ function BalancesTab() {
             <>
               <TableWrap>
                 <thead>
-                  <tr className="bg-slate-50">
+                  <tr className="bg-slate-50 dark:bg-slate-900">
                     <Th>Customer</Th>
                     <Th>Phone</Th>
                     <Th className="text-right">Total sales</Th>
@@ -177,9 +177,9 @@ function BalancesTab() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {rows.map((r) => (
-                    <tr key={r.customerId} className="hover:bg-slate-50">
-                      <Td className="font-medium text-slate-800">{r.name}</Td>
-                      <Td className="text-slate-600">{r.phone ?? '—'}</Td>
+                    <tr key={r.customerId} className="hover:bg-slate-50 dark:bg-slate-900">
+                      <Td className="font-medium text-slate-800 dark:text-slate-200">{r.name}</Td>
+                      <Td className="text-slate-600 dark:text-slate-300">{r.phone ?? '—'}</Td>
                       <Td className="text-right">
                         {formatMoney(r.totalSales, currency)}
                       </Td>
@@ -189,13 +189,13 @@ function BalancesTab() {
                       <Td
                         className={`text-right font-medium ${
                           r.outstandingBalance !== '0.00'
-                            ? 'text-rose-600'
-                            : 'text-slate-400'
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : 'text-slate-400 dark:text-slate-500'
                         }`}
                       >
                         {formatMoney(r.outstandingBalance, currency)}
                       </Td>
-                      <Td className="text-slate-500">
+                      <Td className="text-slate-500 dark:text-slate-400">
                         {formatDateTime(r.lastSaleAt)}
                       </Td>
                     </tr>
@@ -243,8 +243,8 @@ function PaymentsTab() {
 
   return (
     <Card>
-      <div className="flex flex-wrap items-end gap-3 border-b border-slate-200 px-4 py-3">
-        <label className="flex items-center gap-1.5 text-sm text-slate-600">
+      <div className="flex flex-wrap items-end gap-3 border-b border-slate-200 dark:border-slate-700 px-4 py-3">
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
           From
           <Input
             type="date"
@@ -256,7 +256,7 @@ function PaymentsTab() {
             className="!w-auto"
           />
         </label>
-        <label className="flex items-center gap-1.5 text-sm text-slate-600">
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
           To
           <Input
             type="date"
@@ -268,7 +268,7 @@ function PaymentsTab() {
             className="!w-auto"
           />
         </label>
-        <label className="flex items-center gap-1.5 text-sm text-slate-600">
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
           Method
           <Select
             value={method}
@@ -288,11 +288,11 @@ function PaymentsTab() {
         </label>
         {totals && (
           <div className="ml-auto flex items-center gap-4 text-sm">
-            <span className="text-slate-500">
+            <span className="text-slate-500 dark:text-slate-400">
               {String(totals.paymentCount)} payment
               {Number(totals.paymentCount) === 1 ? '' : 's'}
             </span>
-            <span className="font-semibold text-slate-900">
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
               {formatMoney(String(totals.totalAmount), currency)}
             </span>
           </div>
@@ -308,7 +308,7 @@ function PaymentsTab() {
             <>
               <TableWrap>
                 <thead>
-                  <tr className="bg-slate-50">
+                  <tr className="bg-slate-50 dark:bg-slate-900">
                     <Th>Date</Th>
                     <Th>Invoice</Th>
                     <Th>Customer</Th>
@@ -319,16 +319,16 @@ function PaymentsTab() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {rows.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50">
+                    <tr key={r.id} className="hover:bg-slate-50 dark:bg-slate-900">
                       <Td>{formatDateTime(r.receivedAt)}</Td>
-                      <Td className="font-medium text-indigo-700">
+                      <Td className="font-medium text-indigo-700 dark:text-indigo-300">
                         {r.invoiceNumber}
                       </Td>
-                      <Td>{r.customerName ?? <span className="text-slate-400">—</span>}</Td>
+                      <Td>{r.customerName ?? <span className="text-slate-400 dark:text-slate-500">—</span>}</Td>
                       <Td>
                         <Badge tone="sky">{r.method.replace('_', ' ')}</Badge>
                       </Td>
-                      <Td className="text-slate-500">{r.reference ?? '—'}</Td>
+                      <Td className="text-slate-500 dark:text-slate-400">{r.reference ?? '—'}</Td>
                       <Td className="text-right font-medium">
                         {formatMoney(r.amount, currency)}
                       </Td>

@@ -4,6 +4,7 @@ import { Button } from './ui'
 import { Logo } from './Logo'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { useLanguage } from '../i18n/LanguageContext'
+import { useTheme } from '../theme/ThemeContext'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'M3 12h7V3H3v9zm11 9h7v-9h-7v9zM3 21h7v-7H3v7zm11 0h7v-4h-7v4z' },
@@ -18,6 +19,7 @@ export function Layout() {
   const { business, role, isOwner, logout, switchBusiness, businesses, user } = useAuth()
   const navigate = useNavigate()
   const { t } = useLanguage()
+  const { theme, toggle } = useTheme()
 
   if (!business) return null
 
@@ -27,12 +29,12 @@ export function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:flex">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 lg:flex">
       {/* Sidebar */}
-      <aside className="border-b border-slate-200 bg-white lg:flex lg:w-60 lg:flex-col lg:border-b-0 lg:border-r">
+      <aside className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 lg:flex lg:w-60 lg:flex-col lg:border-b-0 lg:border-r">
         <div className="flex items-center gap-2 px-5 py-4">
           <Logo compact />
-          <span className="text-sm font-semibold text-slate-900">
+          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             {business.name}
           </span>
         </div>
@@ -44,8 +46,8 @@ export function Layout() {
               className={({ isActive }) =>
                 `flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
                   isActive
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:bg-slate-800 hover:text-slate-900 dark:text-slate-100'
                 }`
               }
             >
@@ -79,8 +81,8 @@ export function Layout() {
               className={({ isActive }) =>
                 `flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
                   isActive
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:bg-slate-800 hover:text-slate-900 dark:text-slate-100'
                 }`
               }
             >
@@ -107,8 +109,8 @@ export function Layout() {
             </NavLink>
           )}
         </nav>
-        <div className="hidden border-t border-slate-200 px-4 py-3 lg:block">
-          <p className="truncate text-xs text-slate-500">
+        <div className="hidden border-t border-slate-200 dark:border-slate-700 px-4 py-3 lg:block">
+          <p className="truncate text-xs text-slate-500 dark:text-slate-400">
             Signed in as <span className="font-medium">{role}</span>
             {user?.email && (
               <>
@@ -120,7 +122,7 @@ export function Layout() {
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-1 text-xs font-medium text-rose-600 hover:text-rose-500"
+            className="mt-1 text-xs font-medium text-rose-600 dark:text-rose-400 hover:text-rose-500"
           >
           {t('logout')}
           </button>
@@ -129,27 +131,35 @@ export function Layout() {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+        <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-700 bg-white/90 backdrop-blur">
           <div className="flex items-center justify-between gap-3 px-4 py-3 lg:px-6">
             <div className="flex items-center gap-3">
-              <span className="hidden text-sm font-semibold text-slate-900 sm:block">
+              <span className="hidden text-sm font-semibold text-slate-900 dark:text-slate-100 sm:block">
                 {business.name}
               </span>
-              <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+              <span className="rounded-full bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:text-indigo-300">
                 {role}
               </span>
-              <span className="text-xs text-slate-400">
+              <span className="text-xs text-slate-400 dark:text-slate-500">
                 {business.currency}
               </span>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggle}
+                className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                aria-label="Toggle theme"
+              >
+                {theme === 'dark' ? 'Light' : 'Dark'}
+              </button>
               <LanguageSwitcher />
               {businesses.length > 1 && (
                 <select
                   aria-label="Switch business"
                   value={business.id}
                   onChange={(e) => switchBusiness(e.target.value)}
-                  className="max-w-40 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
+                  className="max-w-40 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-700 dark:text-slate-200 focus:border-indigo-500 focus:outline-none"
                 >
                   {businesses.map((b) => (
                     <option key={b.id} value={b.id}>

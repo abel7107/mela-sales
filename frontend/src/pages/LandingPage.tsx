@@ -32,7 +32,7 @@ export function LandingPage() {
   const text = content[language]
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-slate-800">
       <header className="border-b border-slate-100">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           <Logo />
@@ -51,15 +51,15 @@ export function LandingPage() {
       <main>
         <section className="mx-auto grid max-w-7xl items-center gap-12 px-6 py-20 lg:grid-cols-2 lg:py-8">
           <div>
-            <span className="inline-flex rounded-full bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700">
+            <span className="inline-flex rounded-full bg-indigo-50 dark:bg-indigo-900/30 px-4 py-2 text-sm font-medium text-indigo-700 dark:text-indigo-300">
               {t('appName')}
             </span>
 
-            <h1 className="mt-6 max-w-2xl text-4xl font-bold leading-tight tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+            <h1 className="mt-6 max-w-2xl text-4xl font-bold leading-tight tracking-tight text-slate-900 dark:text-slate-100 sm:text-5xl lg:text-6xl">
               {text.tagline}
             </h1>
 
-            <p className="mt-6 max-w-xl text-lg leading-8 text-slate-600">
+            <p className="mt-6 max-w-xl text-lg leading-8 text-slate-600 dark:text-slate-300">
               {text.description}
             </p>
 
@@ -73,7 +73,7 @@ export function LandingPage() {
 
               <Link
                 to="/login"
-                className="rounded-xl border border-slate-200 px-7 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 dark:border-slate-700 px-7 py-3.5 text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:bg-slate-900"
               >
                 {text.signIn}
               </Link>
@@ -106,7 +106,7 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-slate-100 py-6 text-center text-sm text-slate-500">
+      <footer className="border-t border-slate-100 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
         © {new Date().getFullYear()} Mela Sales
       </footer>
     </div>

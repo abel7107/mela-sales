@@ -329,8 +329,8 @@ export function SaleNewPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">New sale</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">New sale</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Prices are loaded from the server — only quantities are sent.
           </p>
         </div>
@@ -361,12 +361,12 @@ export function SaleNewPage() {
                 autoFocus
               />
             </Field>
-            <div className="mt-3 max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
+            <div className="mt-3 max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
               {productsLoading && (
-                <p className="px-3 py-3 text-sm text-slate-500">Searching…</p>
+                <p className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400">Searching…</p>
               )}
               {!productsLoading && productResults.length === 0 && (
-                <p className="px-3 py-3 text-sm text-slate-500">
+                <p className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400">
                   No active products match.
                 </p>
               )}
@@ -376,17 +376,17 @@ export function SaleNewPage() {
                     key={p.id}
                     type="button"
                     onClick={() => addToCart(p)}
-                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-indigo-50"
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-indigo-50 dark:bg-indigo-900/30"
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-slate-800">
+                      <span className="block truncate text-sm font-medium text-slate-800 dark:text-slate-200">
                         {p.name}
                       </span>
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
                         {p.sku ?? 'No SKU'} · {p.type}
                       </span>
                     </span>
-                    <span className="shrink-0 text-sm font-semibold text-slate-900">
+                    <span className="shrink-0 text-sm font-semibold text-slate-900 dark:text-slate-100">
                       {formatMoney(p.price, currency)}
                     </span>
                   </button>
@@ -395,13 +395,13 @@ export function SaleNewPage() {
           </Card>
 
           <Card>
-            <div className="border-b border-slate-200 px-4 py-3">
-              <h2 className="text-sm font-semibold text-slate-900">
+            <div className="border-b border-slate-200 dark:border-slate-700 px-4 py-3">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 Cart ({cart.length})
               </h2>
             </div>
             {cart.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-slate-500">
+              <p className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
                 Search above and tap a product to add it.
               </p>
             ) : (
@@ -415,10 +415,10 @@ export function SaleNewPage() {
                       className="flex flex-wrap items-center gap-3 px-4 py-3"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-slate-800">
+                        <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
                           {item.name}
                         </p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           {formatMoney(item.unitPrice, currency)} each
                           {item.sku ? ` · ${item.sku}` : ''}
                         </p>
@@ -427,7 +427,7 @@ export function SaleNewPage() {
                         <button
                           type="button"
                           aria-label="Decrease quantity"
-                          className="h-7 w-7 rounded border border-slate-300 text-slate-600 hover:bg-slate-50"
+                          className="h-7 w-7 rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:bg-slate-900"
                           onClick={() =>
                             setQty(
                               item.key,
@@ -448,7 +448,7 @@ export function SaleNewPage() {
                         <button
                           type="button"
                           aria-label="Increase quantity"
-                          className="h-7 w-7 rounded border border-slate-300 text-slate-600 hover:bg-slate-50"
+                          className="h-7 w-7 rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:bg-slate-900"
                           onClick={() =>
                             setQty(
                               item.key,
@@ -459,7 +459,7 @@ export function SaleNewPage() {
                           +
                         </button>
                       </div>
-                      <div className="w-24 text-right text-sm font-semibold text-slate-900">
+                      <div className="w-24 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">
                         {formatMoney(
                           lineTotal(item.unitPrice, qty ?? '0'),
                           currency,
@@ -469,7 +469,7 @@ export function SaleNewPage() {
                         type="button"
                         aria-label={`Remove ${item.name}`}
                         onClick={() => removeLine(item.key)}
-                        className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                        className="rounded p-1 text-slate-400 dark:text-slate-500 hover:bg-rose-50 dark:bg-rose-900/30 hover:text-rose-600 dark:text-rose-400"
                       >
                         <svg
                           className="h-4 w-4"
@@ -484,7 +484,7 @@ export function SaleNewPage() {
                         </svg>
                       </button>
                       {lineError && (
-                        <p className="w-full text-xs font-medium text-rose-600">
+                        <p className="w-full text-xs font-medium text-rose-600 dark:text-rose-400">
                           Quantity must be greater than zero (up to 3 decimals).
                         </p>
                       )}
@@ -494,7 +494,7 @@ export function SaleNewPage() {
               </ul>
             )}
             {cartError && (
-              <p className="border-t border-slate-100 px-4 py-2 text-sm font-medium text-rose-600">
+              <p className="border-t border-slate-100 px-4 py-2 text-sm font-medium text-rose-600 dark:text-rose-400">
                 {cartError}
               </p>
             )}
@@ -504,7 +504,7 @@ export function SaleNewPage() {
         <form onSubmit={submit} className="space-y-4">
           <Card className="space-y-4 p-4">
             <div>
-              <p className="mb-1.5 text-sm font-medium text-slate-700">
+              <p className="mb-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">
                 Sale type
               </p>
               <div className="grid grid-cols-2 gap-2">
@@ -513,8 +513,8 @@ export function SaleNewPage() {
                   onClick={() => setSaleType('CASH')}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                     saleType === 'CASH'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                      ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                      : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:bg-slate-900'
                   }`}
                 >
                   Cash
@@ -524,8 +524,8 @@ export function SaleNewPage() {
                   onClick={() => setSaleType('CREDIT')}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                     saleType === 'CREDIT'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                      ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                      : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:bg-slate-900'
                   }`}
                 >
                   Credit
@@ -536,13 +536,13 @@ export function SaleNewPage() {
             {saleType === 'CREDIT' && (
               <Field label="Customer (required for credit)">
                 {customer ? (
-                  <div className="flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+                  <div className="flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2">
                     <span className="truncate text-sm font-medium text-indigo-900">
                       {customer.name}
                     </span>
                     <button
                       type="button"
-                      className="ml-2 shrink-0 text-xs font-medium text-indigo-600 hover:text-indigo-500"
+                      className="ml-2 shrink-0 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
                       onClick={() => {
                         setCustomer(null)
                         setCustomerSearch('')
@@ -570,14 +570,14 @@ export function SaleNewPage() {
                     >
                       + Add New Customer
                     </Button>
-                    <div className="mt-2 max-h-40 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
+                    <div className="mt-2 max-h-40 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
                       {customersLoading && (
-                        <p className="px-3 py-2 text-xs text-slate-500">
+                        <p className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
                           Searching…
                         </p>
                       )}
                       {!customersLoading && customerResults.length === 0 && (
-                        <p className="px-3 py-2 text-xs text-slate-500">
+                        <p className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
                           No active customers match.
                         </p>
                       )}
@@ -589,12 +589,12 @@ export function SaleNewPage() {
                               key={c.id}
                               type="button"
                               onClick={() => setCustomer(c)}
-                              className="block w-full px-3 py-2 text-left hover:bg-indigo-50"
+                              className="block w-full px-3 py-2 text-left hover:bg-indigo-50 dark:bg-indigo-900/30"
                             >
-                              <span className="block text-sm font-medium text-slate-800">
+                              <span className="block text-sm font-medium text-slate-800 dark:text-slate-200">
                                 {c.name}
                               </span>
-                              <span className="text-xs text-slate-500">
+                              <span className="text-xs text-slate-500 dark:text-slate-400">
                                 {c.phone ?? c.email ?? 'No contact'}
                               </span>
                             </button>
@@ -690,7 +690,7 @@ export function SaleNewPage() {
               value={`− ${formatMoney(discountValue, currency)}`}
             />
             <Row label="Tax" value={`+ ${formatMoney(taxValue, currency)}`} />
-            <div className="border-t border-slate-200 pt-2">
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-2">
               <Row label="Total" value={formatMoney(total, currency)} strong />
             </div>
             {saleType === 'CREDIT' && (
@@ -709,7 +709,7 @@ export function SaleNewPage() {
           </Card>
 
           {error && (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+            <div className="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-900/30 px-3 py-2 text-sm text-rose-800 dark:text-rose-300">
               <p className="font-medium">{error.message}</p>
               {error.errors.length > 0 && (
                 <ul className="mt-1 list-inside list-disc">
@@ -729,7 +729,7 @@ export function SaleNewPage() {
           >
             {saleType === 'CASH' ? 'Complete cash sale' : 'Record credit sale'}
           </Button>
-          <p className="text-center text-xs text-slate-400">
+          <p className="text-center text-xs text-slate-400 dark:text-slate-500">
             Duplicate-submit protection is on (idempotency key).
                     </p>
         </form>
@@ -798,7 +798,7 @@ export function SaleNewPage() {
           </Field>
 
           {customerFormError && (
-            <p className="text-sm font-medium text-rose-600">
+            <p className="text-sm font-medium text-rose-600 dark:text-rose-400">
               {customerFormError}
             </p>
           )}
@@ -835,7 +835,7 @@ function Row({
   return (
     <div
       className={`flex items-center justify-between text-sm ${
-        strong ? 'font-semibold text-slate-900' : 'text-slate-600'
+        strong ? 'font-semibold text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'
       }`}
     >
       <span>{label}</span>

@@ -34,8 +34,8 @@ export function InstallmentsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Installments</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Installments</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           Installment plans and their payment progress.
         </p>
       </div>
@@ -49,7 +49,7 @@ export function InstallmentsPage() {
         ) : (
           <TableWrap>
             <thead>
-              <tr className="bg-slate-50">
+              <tr className="bg-slate-50 dark:bg-slate-900">
                 <Th>Customer</Th>
                 <Th>Status</Th>
                 <Th>Sale</Th>
@@ -64,7 +64,7 @@ export function InstallmentsPage() {
               {plans.map((plan) => (
                 <tr
                   key={plan.planId}
-                  className="cursor-pointer hover:bg-slate-50"
+                  className="cursor-pointer hover:bg-slate-50 dark:bg-slate-900"
                   onClick={() => navigate(`/sales/${plan.saleId}`)}
                 >
                   <Td className="font-medium">{plan.customerName ?? 'Walk-in'}</Td>
@@ -73,7 +73,7 @@ export function InstallmentsPage() {
                       {plan.status}
                     </Badge>
                   </Td>
-                  <Td className="text-slate-500">{plan.saleStatus}</Td>
+                  <Td className="text-slate-500 dark:text-slate-400">{plan.saleStatus}</Td>
                   <Td className="text-right">
                     {formatMoney(plan.totalAmount, business.currency)}
                   </Td>

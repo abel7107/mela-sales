@@ -49,7 +49,7 @@ export function Logo({ compact = false, light = false }: LogoProps) {
 
       {!compact && (
         <span className={`text-2xl font-black tracking-[0.12em] ${
-          light ? 'text-white' : 'text-slate-900'
+          light ? 'text-white' : 'text-slate-900 dark:text-slate-100'
         }`}>
           MELA SALES
         </span>

@@ -29,8 +29,8 @@ export function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Settings</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Settings</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           Business profile and team access.
         </p>
       </div>
@@ -115,7 +115,7 @@ function ProfileCard({
 
   return (
     <Card className="p-5">
-      <h2 className="text-sm font-semibold text-slate-900">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
         Business profile
       </h2>
       <form onSubmit={submit} className="mt-4 max-w-xl space-y-4">
@@ -165,14 +165,14 @@ function ProfileCard({
           />
         </Field>
         {error && (
-          <p className="text-sm font-medium text-rose-600">{error.message}</p>
+          <p className="text-sm font-medium text-rose-600 dark:text-rose-400">{error.message}</p>
         )}
         <div className="flex items-center gap-3">
           <Button type="submit" busy={busy}>
             Save profile
           </Button>
           {saved && (
-            <span className="text-sm font-medium text-emerald-600">
+            <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
               Saved.
             </span>
           )}
@@ -247,11 +247,11 @@ function MembersCard({ businessId }: { businessId: string }) {
 
   return (
     <Card>
-      <div className="border-b border-slate-200 px-5 py-3">
-        <h2 className="text-sm font-semibold text-slate-900">
+      <div className="border-b border-slate-200 dark:border-slate-700 px-5 py-3">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
           Team members
         </h2>
-        <p className="mt-0.5 text-xs text-slate-500">
+        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
           Invite your team by the email they sign up with (they need an
           account first).
         </p>
@@ -259,10 +259,10 @@ function MembersCard({ businessId }: { businessId: string }) {
 
       <form
         onSubmit={submit}
-        className="flex flex-wrap items-end gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3"
+        className="flex flex-wrap items-end gap-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-5 py-3"
       >
         <label className="block flex-1">
-          <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+          <span className="mb-1 block text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             Email or user ID
           </span>
           <Input
@@ -272,7 +272,7 @@ function MembersCard({ businessId }: { businessId: string }) {
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+          <span className="mb-1 block text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             Role
           </span>
           <Select
@@ -288,7 +288,7 @@ function MembersCard({ businessId }: { businessId: string }) {
           Add member
         </Button>
         {formError && (
-          <p className="w-full text-sm font-medium text-rose-600">
+          <p className="w-full text-sm font-medium text-rose-600 dark:text-rose-400">
             {formError}
           </p>
         )}
@@ -313,7 +313,7 @@ function MembersCard({ businessId }: { businessId: string }) {
           ) : (
             <TableWrap>
               <thead>
-                <tr className="bg-slate-50">
+                <tr className="bg-slate-50 dark:bg-slate-900">
                   <Th>User ID</Th>
                   <Th>Role</Th>
                   <Th>Status</Th>
@@ -323,7 +323,7 @@ function MembersCard({ businessId }: { businessId: string }) {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {members.map((m) => (
-                  <tr key={m.id} className="hover:bg-slate-50">
+                  <tr key={m.id} className="hover:bg-slate-50 dark:bg-slate-900">
                     <Td className="font-mono text-sm font-medium">
                       {m.authUserId}
                     </Td>
@@ -344,7 +344,7 @@ function MembersCard({ businessId }: { businessId: string }) {
                         {m.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </Td>
-                    <Td className="text-slate-500">
+                    <Td className="text-slate-500 dark:text-slate-400">
                       {new Date(m.createdAt).toLocaleDateString()}
                     </Td>
                     <Td className="text-right">
@@ -418,31 +418,31 @@ function BranchesCard({ businessId }: { businessId: string }) {
 
   return (
     <Card>
-      <div className="border-b border-slate-200 px-5 py-3">
-        <h2 className="text-sm font-semibold text-slate-900">Branches</h2>
-        <p className="mt-0.5 text-xs text-slate-500">
+      <div className="border-b border-slate-200 dark:border-slate-700 px-5 py-3">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Branches</h2>
+        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
           Create branches and assign cashiers to them.
         </p>
       </div>
 
       <form
         onSubmit={submit}
-        className="flex flex-wrap items-end gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3"
+        className="flex flex-wrap items-end gap-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-5 py-3"
       >
         <label className="block flex-1">
-          <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+          <span className="mb-1 block text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             Name
           </span>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Main Branch" />
         </label>
         <label className="block flex-1">
-          <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+          <span className="mb-1 block text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             Address
           </span>
           <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Addis Ababa" />
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs font-medium uppercase text-slate-500">
+          <span className="mb-1 block text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             Phone
           </span>
           <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+251..." />
@@ -451,7 +451,7 @@ function BranchesCard({ businessId }: { businessId: string }) {
           Add branch
         </Button>
         {formError && (
-          <p className="w-full text-sm font-medium text-rose-600">{formError}</p>
+          <p className="w-full text-sm font-medium text-rose-600 dark:text-rose-400">{formError}</p>
         )}
       </form>
 
@@ -545,8 +545,8 @@ function BranchRow({
     <div className="px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-medium text-slate-900">{branch.name}</p>
-          <p className="text-xs text-slate-500">
+          <p className="font-medium text-slate-900 dark:text-slate-100">{branch.name}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             {branch.address ?? 'No address'} · {branch.phone ?? 'No phone'}
           </p>
         </div>
@@ -567,22 +567,22 @@ function BranchRow({
       )}
 
       <div className="mt-3 space-y-2">
-        <p className="text-xs font-medium uppercase text-slate-500">
+        <p className="text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
           Assigned cashiers
         </p>
         {(members ?? []).length === 0 ? (
-          <p className="text-sm text-slate-500">No cashiers assigned.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">No cashiers assigned.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {(members ?? []).map((m) => (
               <span
                 key={m.id}
-                className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700"
+                className="inline-flex items-center gap-2 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1 text-xs text-slate-700 dark:text-slate-200"
               >
                 {m.authUserId}
                 <button
                   type="button"
-                  className="text-rose-600 hover:text-rose-500"
+                  className="text-rose-600 dark:text-rose-400 hover:text-rose-500"
                   onClick={() => void unassign(m.id)}
                 >
                   ×

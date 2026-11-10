@@ -113,7 +113,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
+    <div className="relative flex min-h-screen items-center justify-center bg-slate-100 dark:bg-slate-800 px-4 py-10">
      <div className="absolute right-4 top-4">
         <LanguageSwitcher />
       </div>
@@ -121,7 +121,7 @@ export function LoginPage() {
               <div className="mb-3 flex justify-center">
         <Logo />
       </div>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {mode === 'signin'
   ? t('loginDescription')
   : mode === 'register'
@@ -133,7 +133,7 @@ export function LoginPage() {
 
         <Card className="p-6">
           {info && (
-            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-2 text-sm text-emerald-700">
               {info}
             </div>
           )}
@@ -185,7 +185,7 @@ export function LoginPage() {
                   />
                   <button
                     type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 hover:text-slate-700"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200"
                     onClick={() => setShowPassword((v) => !v)}
                     tabIndex={-1}
                   >
@@ -220,7 +220,7 @@ export function LoginPage() {
                     />
                     <button
                       type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 hover:text-slate-700"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200"
                       onClick={() => setShowPassword((v) => !v)}
                       tabIndex={-1}
                     >
@@ -250,20 +250,20 @@ export function LoginPage() {
             <p className="mt-2 text-center text-sm">
               <button
                 type="button"
-                className="font-medium text-indigo-600 hover:text-indigo-500"
+                className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
                 onClick={() => switchMode('forgot')}
               >
                 {t('forgotPassword')}
               </button>
             </p>
           )}
-          <p className="mt-4 text-center text-sm text-slate-600">
+          <p className="mt-4 text-center text-sm text-slate-600 dark:text-slate-300">
             {mode === 'signin' ? (
               <>
                {t('newHere')}
                 <button
                   type="button"
-                  className="font-medium text-indigo-600 hover:text-indigo-500"
+                  className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
                   onClick={() => switchMode('register')}
                 >
                   {t('createAnAccount')}
@@ -273,7 +273,7 @@ export function LoginPage() {
               <>
                 <button
                   type="button"
-                  className="font-medium text-indigo-600 hover:text-indigo-500"
+                  className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
                   onClick={() => switchMode('signin')}
                 >
                   {t('alreadyHaveAccount')}
@@ -284,7 +284,7 @@ export function LoginPage() {
                {t('alreadyHaveAccount')}
                 <button
                   type="button"
-                  className="font-medium text-indigo-600 hover:text-indigo-500"
+                  className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
                   onClick={() => switchMode('signin')}
                 >
                   {t('backToSignIn')}
@@ -295,8 +295,8 @@ export function LoginPage() {
         </Card>
 
         {import.meta.env.DEV && (
-          <p className="mt-4 text-center text-xs text-slate-400">
-            <Link to="/login/dev" className="hover:text-slate-500">
+          <p className="mt-4 text-center text-xs text-slate-400 dark:text-slate-500">
+            <Link to="/login/dev" className="hover:text-slate-500 dark:text-slate-400">
               {t('developerTokenLogin')}
             </Link>
           </p>
