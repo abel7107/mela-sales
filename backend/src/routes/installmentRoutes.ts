@@ -294,7 +294,12 @@ router.post(
         ]
       );
 
+      const installmentIds: string[] = [];
+
       for (const [index, installment] of parsed.data.installments.entries()) {
+        const installmentId = randomUUID();
+        installmentIds.push(installmentId);
+
         await connection.execute<ResultSetHeader>(
           `INSERT INTO installments (
             id,
@@ -307,7 +312,7 @@ router.post(
           )
           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
-            randomUUID(),
+            installmentId,
             businessId,
             saleId,
             planId,
@@ -316,6 +321,48 @@ router.post(
             installment.dueDate,
           ]
         );
+      }
+
+      const [ownerRows] = await connection.execute<RowDataPacket[]>(
+        `SELECT id
+         FROM business_memberships
+         WHERE business_id = ?
+           AND role = 'OWNER'
+           AND is_active = TRUE`,
+        [businessId]
+      );
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      for (const owner of ownerRows) {
+        for (const [index, installment] of parsed.data.installments.entries()) {
+          const type =
+            installment.dueDate < today
+              ? "OVERDUE"
+              : installment.dueDate === today
+                ? "DUE_TODAY"
+                : "UPCOMING";
+
+          await connection.execute<ResultSetHeader>(
+            `INSERT IGNORE INTO notifications (
+              id,
+              business_id,
+              recipient_membership_id,
+              installment_id,
+              type,
+              message
+            )
+            VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+              randomUUID(),
+              businessId,
+              String(owner.id),
+              installmentIds[index],
+              type,
+              `Installment ${index + 1} of ${installment.amountDue} is due on ${installment.dueDate}.`,
+            ]
+          );
+        }
       }
 
       await writeAuditEvent(

@@ -4,6 +4,7 @@ import { Layout } from './components/Layout'
 import { LoadingBlock } from './components/ui'
 import { BusinessesPage } from './pages/BusinessesPage'
 import { CustomersPage } from './pages/CustomersPage'
+import { NotificationsPage } from './pages/NotificationsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { InstallmentsPage } from './pages/InstallmentsPage'
 import { LandingPage } from './pages/LandingPage'
@@ -47,6 +48,7 @@ export default function App() {
               <Route path="/sales/:saleId" element={<SaleDetailPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/customers" element={<CustomersPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/installments" element={<InstallmentsPage />} />
               <Route path="/settings" element={<SettingsPage />} />

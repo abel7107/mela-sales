@@ -265,3 +265,15 @@ export interface Branch {
   createdAt: string
   updatedAt: string
 }
+
+export interface Notification {
+  id: string
+  businessId: string
+  recipientMembershipId: string
+  installmentId: string
+  type: 'UPCOMING' | 'DUE_TODAY' | 'OVERDUE'
+  message: string
+  isRead: boolean
+  createdAt: string
+  readAt: string | null
+}

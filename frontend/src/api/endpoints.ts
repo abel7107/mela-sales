@@ -19,6 +19,7 @@ import type {
   InstallmentPlan,
   InstallmentPlanSummary,
   Member,
+  Notification,
   PaymentMethod,
   PaymentReportRow,
   Product,
@@ -459,4 +460,21 @@ export function listInstallmentPlans(
     `${B(businessId)}/reports/installments`,
     opts,
   ).then((e) => e.data)
+}
+
+export function listNotifications(
+  businessId: string,
+  opts: RequestOptions & { unread?: boolean } = {},
+) {
+  const params = new URLSearchParams()
+  if (opts.unread) params.set('unread', 'true')
+  const qs = params.toString()
+  return apiGet<Notification[]>(
+    `${B(businessId)}/notifications${qs ? `?${qs}` : ''}`,
+    opts,
+  ).then((e) => e.data)
+}
+
+export function markNotificationRead(businessId: string, notificationId: string) {
+  return apiPatch<void>(`${B(businessId)}/notifications/${notificationId}/read`, {})
 }
