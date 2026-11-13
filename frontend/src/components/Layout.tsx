@@ -1,5 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { listNotifications } from '../api/endpoints'
+import { useQuery } from '../lib/hooks'
 import { Button } from './ui'
 import { Logo } from './Logo'
 import { LanguageSwitcher } from './LanguageSwitcher'
@@ -20,6 +22,10 @@ export function Layout() {
   const navigate = useNavigate()
   const { t } = useLanguage()
   const { theme, toggle } = useTheme()
+  const { data: unread } = useQuery(
+    (signal) => listNotifications(business?.id ?? '', { signal, unread: true }),
+    [business?.id],
+  )
 
   if (!business) return null
 
@@ -161,6 +167,21 @@ export function Layout() {
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
               </svg>
             )}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/notifications')}
+                className="relative rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+                aria-label="Notifications"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                  <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {(unread?.length ?? 0) > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                    {unread!.length}
+                  </span>
+                )}
               </button>
               <LanguageSwitcher />
               {businesses.length > 1 && (
