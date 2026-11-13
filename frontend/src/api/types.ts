@@ -61,6 +61,14 @@ export interface Member {
   createdAt: string
 }
 
+export interface BranchMember {
+  membershipId: string
+  authUserId: string
+  role: Role
+  isActive: boolean
+  assignedAt: string
+}
+
 export interface Product {
   id: string
   businessId: string

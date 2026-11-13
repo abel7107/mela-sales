@@ -17,6 +17,7 @@ Do not execute this snapshot as a migration.
 | 004_optional_recurrence.sql | Optional / not approved | Recurring schedule design; not the agreed installment implementation. |
 | 005_branch_management.sql | Applied | Branch tables and sales.branch_id exist in the live database. Do not rerun. |
 | 006_installment_plans.sql | Applied | Installment plans, schedules, allocations, and notifications tables exist in the live database. Do not rerun. |
+| 007_baseline_current_schema.sql | Baseline | Non-destructive `CREATE TABLE IF NOT EXISTS` snapshot of the current live schema for fresh deployments. |
 
 ## Rules
 

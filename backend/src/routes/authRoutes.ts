@@ -443,6 +443,11 @@ router.post("/reset-password", async (req, res, next) => {
     );
 
     await pool.execute(
+      `DELETE FROM auth_refresh_tokens WHERE user_id = ?`,
+      [user.id]
+    );
+
+    await pool.execute(
       `DELETE FROM auth_password_resets WHERE user_id = ?`,
       [user.id]
     );

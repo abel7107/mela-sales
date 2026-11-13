@@ -6,7 +6,6 @@ import { BusinessesPage } from './pages/BusinessesPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { InstallmentsPage } from './pages/InstallmentsPage'
-import { DevLoginPage } from './pages/DevLoginPage'
 import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProductsPage } from './pages/ProductsPage'
@@ -36,7 +35,6 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/login/dev" element={<DevLoginPage />} />
 
         <Route element={<RequireAuth />}>
           <Route path="/businesses" element={<BusinessesPage />} />

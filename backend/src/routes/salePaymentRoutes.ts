@@ -50,6 +50,7 @@ const recordPaymentSchema = z
 interface MembershipContext {
   id: string;
   businessId: string;
+  role: "OWNER" | "CASHIER";
 }
 
 interface InstallmentAllocationRow extends RowDataPacket {
@@ -157,6 +158,25 @@ router.post(
 
       if (!sale) {
         throw new HttpError(404, "Sale not found in this business.");
+      }
+
+      if (membership.role === "CASHIER") {
+        const [branchRows] = await connection.execute<RowDataPacket[]>(
+          `SELECT s.id
+           FROM sales s
+           INNER JOIN branch_memberships bm
+             ON bm.business_id = s.business_id
+            AND bm.branch_id = s.branch_id
+           WHERE s.business_id = ?
+             AND s.id = ?
+             AND bm.membership_id = ?
+           LIMIT 1`,
+          [businessId, saleId, membership.id]
+        );
+
+        if (branchRows.length === 0) {
+          throw new HttpError(404, "Sale not found in this business.");
+        }
       }
 
       if (sale.status === "VOID") {

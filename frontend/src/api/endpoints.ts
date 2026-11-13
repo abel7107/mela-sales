@@ -11,6 +11,7 @@ import type {
   AuthSession,
   AuthUser,
   Branch,
+  BranchMember,
   Business,
   CreateSaleBody,
   Customer,
@@ -115,7 +116,7 @@ export function updateBranch(
 }
 
 export function listBranchMembers(businessId: string, branchId: string, opts: RequestOptions = {}) {
-  return apiGet<Member[]>(`${B(businessId)}/branches/${branchId}/members`, opts).then(
+  return apiGet<BranchMember[]>(`${B(businessId)}/branches/${branchId}/members`, opts).then(
     (e) => e.data,
   )
 }

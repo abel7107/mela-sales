@@ -1,5 +1,7 @@
 import type { AuthSession, Pagination } from './types'
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? ''
+
 const TOKEN_KEY = 'mela_token'
 const REFRESH_KEY = 'mela_refresh_token'
 
@@ -64,7 +66,7 @@ export async function refreshAccessToken(): Promise<string | null> {
 
     refreshInFlight = (async (): Promise<string | null> => {
       try {
-        const res = await fetch('/api/v1/auth/refresh', {
+        const res = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refreshToken }),
@@ -145,7 +147,7 @@ async function request<T>(
 
   let res: Response
   try {
-    res = await fetch(`/api/v1${path}`, { ...init, headers })
+    res = await fetch(`${API_BASE}/api/v1${path}`, { ...init, headers })
   } catch {
     throw new ApiError(0, 'Network error — is the API running on port 5000?')
   }

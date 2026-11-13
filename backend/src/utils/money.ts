@@ -4,24 +4,44 @@ export const MAX_MONEY_CENTS = 999999999999n;
 
 /** Convert a decimal money string to integer cents without float math. */
 export function moneyToCents(value: string): bigint {
-  const [whole, fraction = ""] = value.split(".");
+  const parts = value.split(".");
 
-  if (!/^\d+$/.test(whole) || !/^\d{0,2}$/.test(fraction)) {
+  if (parts.length > 2) {
     throw new HttpError(400, `Invalid money amount: ${value}`);
   }
 
-  return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0"));
+  const [whole, fraction = ""] = parts;
+
+  if (!/^\d+$/.test(whole)) {
+    throw new HttpError(400, `Invalid money amount: ${value}`);
+  }
+
+  if (parts.length === 2 && !/^\d{1,2}$/.test(fraction)) {
+    throw new HttpError(400, `Invalid money amount: ${value}`);
+  }
+
+  return BigInt(whole) * 100n + BigInt((fraction || "").padEnd(2, "0"));
 }
 
 /** Convert a quantity string to thousandths. "2.5" becomes 2500. */
 export function quantityToThousandths(value: string): bigint {
-  const [whole, fraction = ""] = value.split(".");
+  const parts = value.split(".");
 
-  if (!/^\d+$/.test(whole) || !/^\d{0,3}$/.test(fraction)) {
+  if (parts.length > 2) {
     throw new HttpError(400, `Invalid quantity: ${value}`);
   }
 
-  return BigInt(whole) * 1000n + BigInt(fraction.padEnd(3, "0"));
+  const [whole, fraction = ""] = parts;
+
+  if (!/^\d+$/.test(whole)) {
+    throw new HttpError(400, `Invalid quantity: ${value}`);
+  }
+
+  if (parts.length === 2 && !/^\d{1,3}$/.test(fraction)) {
+    throw new HttpError(400, `Invalid quantity: ${value}`);
+  }
+
+  return BigInt(whole) * 1000n + BigInt((fraction || "").padEnd(3, "0"));
 }
 
 /** Render integer cents as a fixed 2-decimal money string. */

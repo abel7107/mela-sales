@@ -32,7 +32,7 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-change_me}
       MYSQL_DATABASE: ${DB_NAME:-mela_sales_db}
     volumes:
-      - ./database/schema.sql:/schema.sql:ro
+      - ./database/migrations/007_baseline_current_schema.sql:/schema.sql:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >

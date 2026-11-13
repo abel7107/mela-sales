@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { addMember, assignBranchMember, createBranch, listBranches, listBranchMembers, listMembers, unassignBranchMember, updateBranch, updateBusiness, updateMember } from '../api/endpoints'
-import type { Branch, Member, Role } from '../api/types'
+import type { Branch, BranchMember, Member, Role } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { useQuery } from '../lib/hooks'
 import {
@@ -498,7 +498,7 @@ function BranchRow({
   branch: Branch
   onToggle: () => void
 }) {
-  const { data: members, reload: reloadMembers } = useQuery(
+  const { data: members, reload: reloadMembers } = useQuery<BranchMember[]>(
     (signal) => listBranchMembers(businessId, branch.id, { signal }),
     [businessId, branch.id],
   )
@@ -511,7 +511,7 @@ function BranchRow({
   const [assignBusy, setAssignBusy] = useState(false)
   const [actionError, setActionError] = useState<ApiError | null>(null)
 
-  const assignedIds = new Set((members ?? []).map((m) => m.id))
+  const assignedIds = new Set((members ?? []).map((m) => m.membershipId))
   const available = (allMembers ?? []).filter(
     (m) => m.role === 'CASHIER' && m.isActive && !assignedIds.has(m.id),
   )
@@ -576,14 +576,14 @@ function BranchRow({
           <div className="flex flex-wrap gap-2">
             {(members ?? []).map((m) => (
               <span
-                key={m.id}
+                key={m.membershipId}
                 className="inline-flex items-center gap-2 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1 text-xs text-slate-700 dark:text-slate-200"
               >
                 {m.authUserId}
                 <button
                   type="button"
                   className="text-rose-600 dark:text-rose-400 hover:text-rose-500"
-                  onClick={() => void unassign(m.id)}
+                  onClick={() => void unassign(m.membershipId)}
                 >
                   ×
                 </button>
