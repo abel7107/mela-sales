@@ -163,42 +163,119 @@ router.post(
       connection = await pool.getConnection();
       await connection.beginTransaction();
 
-      // Validate branch access before creating the sale.
-        const [branchRows] = await connection.execute<RowDataPacket[]>(
+      // Resolve the branch for this sale. If the client did not provide one
+      // (or provided an empty value), fall back to the first active branch
+      // for the business, creating a default branch when none exists.
+      let resolvedBranchId = input.branchId;
+
+      if (!resolvedBranchId) {
+        const [activeBranches] = await connection.execute<RowDataPacket[]>(
           `SELECT id
-          FROM branches
-          WHERE business_id = ?
-            AND id = ?
-            AND is_active = TRUE
-          LIMIT 1
-          FOR UPDATE`,
-          [businessId, input.branchId]
+           FROM branches
+           WHERE business_id = ?
+             AND is_active = TRUE
+           ORDER BY created_at ASC
+           LIMIT 1
+           FOR UPDATE`,
+          [businessId]
         );
 
-        if (branchRows.length === 0) {
-          throw new HttpError(404, "Active branch not found in this business.");
-        }
+        if (activeBranches.length > 0) {
+          resolvedBranchId = String(activeBranches[0].id);
+        } else {
+          const newBranchId = randomUUID();
 
-        // Cashiers must be assigned to the selected branch.
-        // Owners can create sales in any active branch.
-        if (membership.role === "CASHIER") {
-          const [assignmentRows] = await connection.execute<RowDataPacket[]>(
+          try {
+            await connection.execute<ResultSetHeader>(
+              `INSERT INTO branches (id, business_id, name)
+               VALUES (?, ?, ?)`,
+              [newBranchId, businessId, "Main Branch"]
+            );
+          } catch (error) {
+            // A branch may have been created concurrently; ignore duplicates.
+            if (
+              !(
+                typeof error === "object" &&
+                error !== null &&
+                (error as { code?: unknown }).code === "ER_DUP_ENTRY"
+              )
+            ) {
+              throw error;
+            }
+          }
+
+          const [fallbackBranches] = await connection.execute<RowDataPacket[]>(
             `SELECT id
-            FROM branch_memberships
-            WHERE business_id = ?
-              AND branch_id = ?
-              AND membership_id = ?
-            LIMIT 1`,
-            [businessId, input.branchId, membership.id]
+             FROM branches
+             WHERE business_id = ?
+               AND is_active = TRUE
+             ORDER BY created_at ASC
+             LIMIT 1
+             FOR UPDATE`,
+            [businessId]
           );
 
-          if (assignmentRows.length === 0) {
-            throw new HttpError(
-              403,
-              "You are not assigned to this branch."
+          if (fallbackBranches.length > 0) {
+            resolvedBranchId = String(fallbackBranches[0].id);
+          } else {
+            const [anyBranches] = await connection.execute<RowDataPacket[]>(
+              `SELECT id
+               FROM branches
+               WHERE business_id = ?
+               ORDER BY created_at ASC
+               LIMIT 1
+               FOR UPDATE`,
+              [businessId]
             );
+
+            if (anyBranches.length === 0) {
+              throw new HttpError(
+                500,
+                "Could not resolve a branch for this sale."
+              );
+            }
+
+            resolvedBranchId = String(anyBranches[0].id);
           }
         }
+      }
+
+      // Validate branch access before creating the sale.
+      const [branchRows] = await connection.execute<RowDataPacket[]>(
+        `SELECT id
+        FROM branches
+        WHERE business_id = ?
+          AND id = ?
+          AND is_active = TRUE
+        LIMIT 1
+        FOR UPDATE`,
+        [businessId, resolvedBranchId]
+      );
+
+      if (branchRows.length === 0) {
+        throw new HttpError(404, "Active branch not found in this business.");
+      }
+
+      // Cashiers must be assigned to the selected branch.
+      // Owners can create sales in any active branch.
+      if (membership.role === "CASHIER") {
+        const [assignmentRows] = await connection.execute<RowDataPacket[]>(
+          `SELECT id
+          FROM branch_memberships
+          WHERE business_id = ?
+            AND branch_id = ?
+            AND membership_id = ?
+          LIMIT 1`,
+          [businessId, resolvedBranchId, membership.id]
+        );
+
+        if (assignmentRows.length === 0) {
+          throw new HttpError(
+            403,
+            "You are not assigned to this branch."
+          );
+        }
+      }
 
       // Validate the customer within this business.
       if (input.customerId) {
@@ -387,7 +464,7 @@ router.post(
           saleId,
           businessId,
           input.customerId ?? null,
-          input.branchId,
+          resolvedBranchId as string,
           membership.id,
           input.saleType,
           status,

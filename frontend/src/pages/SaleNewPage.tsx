@@ -287,7 +287,7 @@ export function SaleNewPage() {
     const needsPaymentMethod = saleType === 'CASH' || hasInitialPayment
 
     const body = {
-      branchId,
+      ...(branchId ? { branchId } : {}),
       saleType,
       items: cart.map((i) => ({
         productServiceId: i.productServiceId,

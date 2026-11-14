@@ -204,6 +204,7 @@ export interface PaymentReportRow {
 }
 
 export interface CreateSaleBody {
+  branchId?: string
   saleType: SaleType
   items: Array<{
     productServiceId: string

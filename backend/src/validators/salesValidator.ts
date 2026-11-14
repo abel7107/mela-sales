@@ -29,7 +29,10 @@ const saleItemSchema = z
 
 export const createSaleSchema = z
   .object({
-    branchId: z.string().uuid(),
+    branchId: z.preprocess(
+      (value) => (value === "" || value === null ? undefined : value),
+      z.string().uuid().optional()
+    ),
 
     customerId: z.string().uuid().nullable().optional(),
 
